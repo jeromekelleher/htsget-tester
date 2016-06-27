@@ -11,6 +11,8 @@ import sys
 
 import requests
 
+IS_PY2 = sys.version_info[0] < 3
+
 
 class Client(object):
     """
@@ -26,7 +28,10 @@ class Client(object):
         self.__end = end
         self.__chunk_size = 64 * 1024  # TODO add as CLI parameter
         if output_file is None:
-            self.__output = sys.stdout
+            if IS_PY2:
+                self.__output = sys.stdout
+            else:
+                self.__output = sys.stdout.buffer
         else:
             self.__output = open(output_file, "wb")
 

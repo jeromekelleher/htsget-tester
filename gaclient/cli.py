@@ -5,6 +5,8 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import os
+import signal
 
 import gaclient
 
@@ -52,6 +54,9 @@ def get_gaclient_parser():
 
 
 def main():
+    if os.name == "posix":
+        # Set signal handler for SIGPIPE to quietly kill the program.
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     parser = get_gaclient_parser()
     args = parser.parse_args()
     run(args)
