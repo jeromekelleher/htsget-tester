@@ -48,16 +48,27 @@ class Client(object):
         if "prefix" in ticket:
             prefix = base64.b64decode(ticket["prefix"])
             self.__output.write(prefix)
-        for url in ticket["urls"]:
-            print("Getting", url)
-            response = requests.get(url, stream=True)
+        byte_ranges = None
+        if "byteRanges" in ticket:
+            byte_ranges = ticket["byteRanges"]
+            # TODO raise a proper exception here.
+            assert len(byte_ranges) == len(ticket["urls"])
+        extra_headers = {}
+        if "httpRequestHeaders" in ticket:
+            extra_headers.update(ticket["httpRequestHeaders"])
+        for j, url in enumerate(ticket["urls"]):
+            headers = dict(extra_headers)
+            if byte_ranges is not None:
+                start = byte_ranges[j]["start"]
+                end = byte_ranges[j]["end"]
+                headers["Range"] = "bytes={}-{}".format(start, end)
+            response = requests.get(url, stream=True, headers=headers)
             response.raise_for_status()
             for chunk in response.iter_content(self.__chunk_size):
                 self.__output.write(chunk)
         if "suffix" in ticket:
             prefix = base64.b64decode(ticket["suffix"])
             self.__output.write(prefix)
-
 
     def close(self):
         """
