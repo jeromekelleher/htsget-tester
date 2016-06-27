@@ -1,3 +1,6 @@
 # ga4gh-streaming-client
-An experimental client for the GA4GH bulk data streaming API.
+
+A Python implementation of the draft API spec at 
+
+https://docs.google.com/document/d/1OSPfxdJ3uPoCfUVzMaekCOPF5sNEwqkJEUj-SjlECy0
 
