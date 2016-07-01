@@ -48,6 +48,59 @@ class Client(object):
         """
         self.__output.write(chunk)
 
+    def __handle_http(self, http_url):
+        """
+        Handles a single HTTP request.
+        """
+        url = http_url["url"]
+        method = http_url.get("method", "GET")
+        # The dict may have had a null for method
+        if method is None:
+            method = "GET"
+        headers = http_url.get("headers", None)
+        body = http_url.get("body", None)
+        response = requests.request(
+            method, url, headers=headers, data=body, stream=True)
+        response.raise_for_status()
+        length = 0
+        for chunk in response.iter_content(self.__chunk_size):
+            self.__store_chunk(chunk)
+            length += len(chunk)
+        if "Content-Length" in response.headers:
+            content_length = int(response.headers["Content-Length"])
+            if content_length != length:
+                raise ValueError(
+                    "Mismatch in downloaded length:{} != {}".format(
+                        content_length, length))
+
+    def __handle_ftp(self, ftp_url):
+        """
+        Handles a single FTP request.
+        """
+        url = ftp_url["url"]
+        print(ftp_url)
+        parsed_url = urlparse(url)
+        with ftplib.FTP(parsed_url.netloc) as ftp:
+            ftp.set_debuglevel(1)
+            ftp.login()
+            # TODO: what does the protocol say about quoting of URLs??
+            # Should we really have to unquote these URLs for FTP?
+            directory, filename = map(
+                unquote, os.path.split(parsed_url.path))
+            ftp.cwd(directory)
+            print("Filename = ", filename, parsed_url.path)
+            ftp.retrbinary(
+                "RETR {}".format(filename), self.__store_chunk)
+
+    def __handle_data(self, data_uri):
+        """
+        Handles a single data URI.
+        """
+        parsed_url = urlparse(data_uri["url"])
+        # TODO parse out the encoding properly.
+        data = base64.b64decode(parsed_url.path.split(",", 1)[1])
+        self.__store_chunk(data)
+
     def download(self):
         """
         Runs the query.
@@ -59,57 +112,24 @@ class Client(object):
             params["start"] = self.__start
         if self.__end is not None:
             params["end"] = self.__end
-        params["format"] = "BAM"
         url = os.path.join(self.__base_url, self.__id)
         response = requests.get(url, params=params)
         response.raise_for_status()
         ticket = response.json()
+        print("ticket:", ticket.keys())
         if "prefix" in ticket:
             prefix = base64.b64decode(ticket["prefix"])
             self.__output.write(prefix)
-        byte_ranges = None
-        if "byteRanges" in ticket:
-            if ticket["byteRanges"] is not None:
-                byte_ranges = ticket["byteRanges"]
-                # TODO raise a proper exception here.
-                assert len(byte_ranges) == len(ticket["urls"])
         extra_headers = {}
-        if "httpRequestHeaders" in ticket:
-            if ticket["httpRequestHeaders"] is not None:
-                extra_headers.update(ticket["httpRequestHeaders"])
-        for j, url in enumerate(ticket["urls"]):
-            parsed_url = urlparse(url)
-            if parsed_url.scheme.startswith("http"):
-                headers = dict(extra_headers)
-                if byte_ranges is not None:
-                    start = byte_ranges[j]["start"]
-                    end = byte_ranges[j]["end"]
-                    headers["Range"] = "bytes={}-{}".format(start, end - 1)
-                response = requests.get(url, stream=True, headers=headers)
-                response.raise_for_status()
-                length = 0
-                for chunk in response.iter_content(self.__chunk_size):
-                    self.__store_chunk(chunk)
-                    length += len(chunk)
-                if "Content-Length" in response.headers:
-                    content_length = int(response.headers["Content-Length"])
-                    if content_length != length:
-                        raise ValueError(
-                            "Mismatch in downloaded length:{} != {}".format(
-                                content_length, length))
-            elif parsed_url.scheme == "ftp":
-                print(url)
-                print(byte_ranges)
-                with ftplib.FTP(parsed_url.netloc) as ftp:
-                    ftp.set_debuglevel(1)
-                    ftp.login()
-                    # TODO: what does the protocol say about quoting of URLs??
-                    # Should we really have to unquote these URLs for FTP?
-                    directory, filename = map(
-                        unquote, os.path.split(parsed_url.path))
-                    ftp.cwd(directory)
-                    ftp.retrbinary(
-                        "RETR {}".format(filename), self.__store_chunk)
+        for j, url_object in enumerate(ticket["urls"]):
+            url = url_object["url"]
+            print(url[:5])
+            if url.startswith("http"):
+                self.__handle_http(url_object)
+            elif url.startswith("ftp"):
+                self.__handle_ftp(url_object)
+            elif url.startswith("data"):
+                self.__handle_data(url_object)
             else:
                 raise ValueError("Unsupported URL:{}".format(url))
         if "suffix" in ticket:
