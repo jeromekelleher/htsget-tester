@@ -16,10 +16,10 @@ IS_PY2 = sys.version_info[0] < 3
 
 if IS_PY2:
     from urlparse import urlparse
-    from urlparse import urlparse
 else:
     from urllib.parse import urlparse
     from urllib.parse import unquote
+
 
 class Client(object):
     """
@@ -59,6 +59,9 @@ class Client(object):
             method = "GET"
         headers = http_url.get("headers", None)
         body = http_url.get("body", None)
+
+        # print("url = ", url)
+        # print("headers = ", headers)
         response = requests.request(
             method, url, headers=headers, data=body, stream=True)
         response.raise_for_status()
@@ -112,18 +115,18 @@ class Client(object):
             params["start"] = self.__start
         if self.__end is not None:
             params["end"] = self.__end
+        # TODO add format and other query parameters.
         url = os.path.join(self.__base_url, self.__id)
         response = requests.get(url, params=params)
         response.raise_for_status()
         ticket = response.json()
-        print("ticket:", ticket.keys())
+        # print("ticket:", ticket.keys())
         if "prefix" in ticket:
             prefix = base64.b64decode(ticket["prefix"])
             self.__output.write(prefix)
-        extra_headers = {}
-        for j, url_object in enumerate(ticket["urls"]):
+        for url_object in ticket["urls"]:
             url = url_object["url"]
-            print(url[:5])
+            # print(url[:5], len(url))
             if url.startswith("http"):
                 self.__handle_http(url_object)
             elif url.startswith("ftp"):
