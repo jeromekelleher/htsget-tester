@@ -6,7 +6,6 @@ from __future__ import division
 from __future__ import print_function
 
 import base64
-import ftplib
 import os.path
 import sys
 
@@ -76,24 +75,6 @@ class Client(object):
                     "Mismatch in downloaded length:{} != {}".format(
                         content_length, length))
 
-    def __handle_ftp(self, ftp_url):
-        """
-        Handles a single FTP request.
-        """
-        url = ftp_url["url"]
-        print(ftp_url)
-        parsed_url = urlparse(url)
-        with ftplib.FTP(parsed_url.netloc) as ftp:
-            ftp.set_debuglevel(1)
-            ftp.login()
-            # TODO: what does the protocol say about quoting of URLs??
-            # Should we really have to unquote these URLs for FTP?
-            directory, filename = map(
-                unquote, os.path.split(parsed_url.path))
-            ftp.cwd(directory)
-            print("Filename = ", filename, parsed_url.path)
-            ftp.retrbinary(
-                "RETR {}".format(filename), self.__store_chunk)
 
     def __handle_data(self, data_uri):
         """
@@ -120,24 +101,14 @@ class Client(object):
         response = requests.get(url, params=params)
         response.raise_for_status()
         ticket = response.json()
-        # print("ticket:", ticket.keys())
-        if "prefix" in ticket:
-            prefix = base64.b64decode(ticket["prefix"])
-            self.__output.write(prefix)
         for url_object in ticket["urls"]:
             url = url_object["url"]
-            # print(url[:5], len(url))
             if url.startswith("http"):
                 self.__handle_http(url_object)
-            elif url.startswith("ftp"):
-                self.__handle_ftp(url_object)
             elif url.startswith("data"):
                 self.__handle_data(url_object)
             else:
                 raise ValueError("Unsupported URL:{}".format(url))
-        if "suffix" in ticket:
-            prefix = base64.b64decode(ticket["suffix"])
-            self.__output.write(prefix)
 
     def close(self):
         """
