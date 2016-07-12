@@ -6,12 +6,18 @@ from __future__ import print_function
 
 import argparse
 import os
+import logging
 import signal
 
 import gaclient
 
 
 def run(args):
+    log_level = logging.WARNING
+    if args.verbose > 0:
+        log_level = logging.INFO
+    logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
+
     client = gaclient.Client(
         base_url=args.url,
         id_=args.id,
@@ -30,6 +36,7 @@ def get_gaclient_parser():
     parser.add_argument(
         "-V", "--version", action='version',
         version='%(prog)s {}'.format(gaclient.__version__))
+    parser.add_argument('--verbose', '-v', action='count')
 
     parser.add_argument(
         "url", type=str, help="The URL prefix of the server")

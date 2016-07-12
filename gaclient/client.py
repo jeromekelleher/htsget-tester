@@ -7,6 +7,7 @@ from __future__ import print_function
 
 import base64
 import os.path
+import logging
 import sys
 
 import requests
@@ -17,7 +18,6 @@ if IS_PY2:
     from urlparse import urlparse
 else:
     from urllib.parse import urlparse
-    from urllib.parse import unquote
 
 
 class Client(object):
@@ -58,9 +58,7 @@ class Client(object):
             method = "GET"
         headers = http_url.get("headers", None)
         body = http_url.get("body", None)
-
-        # print("url = ", url)
-        # print("headers = ", headers)
+        logging.info("HTTP: {}: {}: Header = {}".format(method, url, headers))
         response = requests.request(
             method, url, headers=headers, data=body, stream=True)
         response.raise_for_status()
@@ -75,14 +73,15 @@ class Client(object):
                     "Mismatch in downloaded length:{} != {}".format(
                         content_length, length))
 
-
     def __handle_data(self, data_uri):
         """
         Handles a single data URI.
         """
         parsed_url = urlparse(data_uri["url"])
         # TODO parse out the encoding properly.
-        data = base64.b64decode(parsed_url.path.split(",", 1)[1])
+        split = parsed_url.path.split(",", 1)
+        data = base64.b64decode(split[1])
+        logging.info("DATA: {}: length = {}".format(split[0], len(split[1])))
         self.__store_chunk(data)
 
     def download(self):
