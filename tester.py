@@ -6,31 +6,11 @@ import os
 import itertools
 import time
 import tempfile
+import logging
 import random
 import os.path
 
 import gaclient
-
-
-class ServerTester(object):
-
-    def __init__(source_bam, url, id_):
-        self.source_bam = source_bam
-        self.outfile = "tmp__NOBACKUP__/test_{}.bam".format(os.getpid())
-        boundary_block_size = 10
-        in_af = pysam.AlignmentFile(source_bam)
-        self.reference_names = in_af.references
-        self.reference_lengths = in_af.lengths
-
-        # TODO find the coordinates of the first and last k records
-        # so that we can test behaviour at the edges.
-        self.initial_block_coordinates = []
-        for ref_name in self.references_names:
-            num_reads = 0
-            for read in in_af.fetch(ref_name):
-                if num_reads == boundary_block_size:
-                    break
-        in_af.close()
 
 
 def run_random_tests(source_bam, url, id_):
@@ -45,7 +25,6 @@ def run_random_tests(source_bam, url, id_):
         reference_name, length = random.choice(ref_lengths)
         start = random.randint(0, length)
         end = random.randint(start, length)
-        # reference_name, start, end = "GL000246.1", 12866, 38114
         print("reference_name, start, end = {}, {}, {}".format(
             reference_name, start, end))
         client = gaclient.Client(
@@ -80,10 +59,24 @@ def run_random_tests(source_bam, url, id_):
         print(num_reads, "read with", extra, "trailing reads")
 
 if __name__ == "__main__":
-    na12878 = "/home/jk/public_html/1kg-data/NA12878.mapped.ILLUMINA.bwa.CEU.low_coverage.20121211.bam"
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+
+    # jk
+    bam_file = "/home/jk/public_html/1kg-data/NA12878.mapped.ILLUMINA.bwa.CEU.low_coverage.20121211.bam"
     server_url = "http://holly:8000/reads/fetch"
     server_id = "1046405015"
+
+    # htsnexus
+    server_url = "http://htsnexus.rnd.dnanex.us/v1/reads/"
+    server_id = "1000genomes_low_coverage/NA12878"
+
+    # EBI
+    bam_file = "tmp__NOBACKUP__/input_data/8660_5#17.bam"
+    server_url = "http://ga4gh.ebi.ac.uk/ticket"
+    server_id = "ERR217910"
+
     # tester = ServerTester(na12878, server_url, server_id)
     # run_edge_tests(na12878, server_url, server_id)
-    run_random_tests(na12878, server_url, server_id)
+    run_random_tests(bam_file, server_url, server_id)
+
 

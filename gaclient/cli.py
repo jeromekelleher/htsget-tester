@@ -36,7 +36,7 @@ def get_gaclient_parser():
     parser.add_argument(
         "-V", "--version", action='version',
         version='%(prog)s {}'.format(gaclient.__version__))
-    parser.add_argument('--verbose', '-v', action='count')
+    parser.add_argument('--verbose', '-v', action='count', default=0)
 
     parser.add_argument(
         "url", type=str, help="The URL prefix of the server")
