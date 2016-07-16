@@ -33,7 +33,14 @@ class Client(object):
         self.__start = start
         self.__end = end
         self.__chunk_size = 64 * 1024  # TODO add as CLI parameter
+        self.__http_timeout = 5  # TODO add as a CLI parameter
+        self.__max_attempts = 5
+        self.__checkpoint_offset = None
+        self.__is_stdout = False
         if output_file is None:
+            self.__is_stdout = True
+            # We cannot do retries when writing to stdout.
+            self.__max_attempts = 1
             if IS_PY2:
                 self.__output = sys.stdout
             else:
@@ -47,6 +54,20 @@ class Client(object):
         """
         self.__output.write(chunk)
 
+    def __set_checkpoint(self):
+        """
+        Sets the checkpoint offset where we restart the read to.
+        """
+        if not self.__is_stdout:
+            self.__checkpoint_offset = self.__output.tell()
+
+    def __resume_checkpoint(self):
+        """
+        Resets the file pointer to the checkpoint offset.
+        """
+        if not self.__is_stdout:
+            self.__output.seek(self.__checkpoint_offset)
+
     def __handle_http(self, http_url):
         """
         Handles a single HTTP request.
@@ -59,19 +80,36 @@ class Client(object):
         headers = http_url.get("headers", None)
         body = http_url.get("body", None)
         logging.info("HTTP: {}: {}: Header = {}".format(method, url, headers))
-        response = requests.request(
-            method, url, headers=headers, data=body, stream=True)
-        response.raise_for_status()
-        length = 0
-        for chunk in response.iter_content(self.__chunk_size):
-            self.__store_chunk(chunk)
-            length += len(chunk)
-        if "Content-Length" in response.headers:
-            content_length = int(response.headers["Content-Length"])
-            if content_length != length:
-                raise ValueError(
-                    "Mismatch in downloaded length:{} != {}".format(
-                        content_length, length))
+        self.__set_checkpoint()
+        successful = False
+        num_attempts = 0
+        while not successful:
+            if num_attempts == self.__max_attempts:
+                # TODO proper exception.
+                raise ValueError("Too many retries")
+            try:
+                self.__resume_checkpoint()
+                response = requests.request(
+                    method, url, headers=headers, data=body, stream=True,
+                    timeout=self.__http_timeout)
+                response.raise_for_status()
+                length = 0
+                for chunk in response.iter_content(self.__chunk_size):
+                    self.__store_chunk(chunk)
+                    length += len(chunk)
+                if "Content-Length" in response.headers:
+                    content_length = int(response.headers["Content-Length"])
+                    if content_length != length:
+                        # TODO proper exception.
+                        raise ValueError(
+                            "Mismatch in downloaded length:{} != {}".format(
+                                content_length, length))
+                successful = True
+            except requests.Timeout as te:
+                logging.info("Timeout:{}".format(te))
+            except requests.ConnectionError as ce:
+                logging.info("Connection error: {}".format(ce))
+            num_attempts += 1
 
     def __handle_data(self, data_uri):
         """
