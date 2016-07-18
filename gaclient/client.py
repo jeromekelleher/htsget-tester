@@ -19,6 +19,8 @@ if IS_PY2:
 else:
     from urllib.parse import urlparse
 
+CONTENT_LENGTH = "Content-Length"
+
 
 class Client(object):
     """
@@ -53,6 +55,7 @@ class Client(object):
         Writes the specified chunk of data to the output.
         """
         self.__output.write(chunk)
+        return len(chunk)
 
     def __set_checkpoint(self):
         """
@@ -95,10 +98,9 @@ class Client(object):
                 response.raise_for_status()
                 length = 0
                 for chunk in response.iter_content(self.__chunk_size):
-                    self.__store_chunk(chunk)
-                    length += len(chunk)
-                if "Content-Length" in response.headers:
-                    content_length = int(response.headers["Content-Length"])
+                    length += self.__store_chunk(chunk)
+                if CONTENT_LENGTH in response.headers:
+                    content_length = int(response.headers[CONTENT_LENGTH])
                     if content_length != length:
                         # TODO proper exception.
                         raise ValueError(
@@ -109,6 +111,9 @@ class Client(object):
                 logging.info("Timeout:{}".format(te))
             except requests.ConnectionError as ce:
                 logging.info("Connection error: {}".format(ce))
+            except requests.exceptions.HTTPError as he:
+                logging.info("HTTP error: {}".format(he))
+
             num_attempts += 1
 
     def __handle_data(self, data_uri):

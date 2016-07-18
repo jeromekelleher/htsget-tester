@@ -9,6 +9,7 @@ import tempfile
 import logging
 import random
 import os.path
+import argparse
 
 import gaclient
 
@@ -58,6 +59,7 @@ class ServerTester(object):
             if j < num_references - 1:
                 iterator = self.alignment_file.fetch(
                     self.alignment_file.references[j + 1])
+                # TODO this doesn't work for Vadim's BAM file; WHY??
                 next(iterator)
                 position = self.alignment_file.tell()
                 file_offset, block_offset = decode_virtual_offset(position)
@@ -182,27 +184,25 @@ class ServerTester(object):
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
-    # jk
-    bam_file = "/home/jk/public_html/1kg-data/NA12878.mapped.ILLUMINA.bwa.CEU.low_coverage.20121211.bam"
-    server_url = "http://holly:8000/reads/fetch"
-    server_id = "705260849"
+    parser = argparse.ArgumentParser(
+        description="A simple tester application for the GA4GH streaming API.")
+    parser.add_argument(
+        "-V", "--version", action='version',
+        version='%(prog)s {}'.format(gaclient.__version__))
+    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument(
+        "bam_file", type=str, help="The local BAM file to compare to")
+    parser.add_argument(
+        "url", type=str, help="The URL prefix of the server")
+    parser.add_argument(
+        "id", type=str, help="The ID of the ReadGroupSet")
 
-    # htsnexus
-    # server_url = "http://htsnexus.rnd.dnanex.us/v1/reads/"
-    # server_id = "1000genomes_low_coverage/NA12878"
-
-    # EBI
-    # bam_file = "tmp__NOBACKUP__/input_data/8660_5#17.bam"
-    # server_url = "http://ga4gh.ebi.ac.uk/ticket"
-    # server_id = "ERR217910"
-
-    # tester = ServerTester(na12878, server_url, server_id)
-    # run_edge_tests(na12878, server_url, server_id)
-    # run_random_tests(bam_file, server_url, server_id)
-    tester = ServerTester(bam_file, server_url, server_id)
+    args = parser.parse_args()
+    tester = ServerTester(args.bam_file, args.url, args.id)
     try:
+        # TODO These don't work for the 8660_5#17.bam; why???
         tester.run_initial_reads()
         tester.run_final_reads()
-        tester.run_random_reads(10)
+        tester.run_random_reads(10**6)
     finally:
         tester.cleanup()
