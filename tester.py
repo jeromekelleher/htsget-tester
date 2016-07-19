@@ -59,27 +59,27 @@ class ServerTester(object):
             if j < num_references - 1:
                 iterator = self.alignment_file.fetch(
                     self.alignment_file.references[j + 1])
-                # TODO this doesn't work for Vadim's BAM file; WHY??
-                next(iterator)
-                position = self.alignment_file.tell()
-                file_offset, block_offset = decode_virtual_offset(position)
-                if block_offset != 0:
-                    block_start = file_offset << 16
-                    self.alignment_file.seek(block_start)
-                    for read in self.alignment_file:
-                        if read.reference_name == reference_name:
-                            last_positions.append(read.pos)
-                        else:
-                            break
-                else:
-                    print("Dammit! block offset != 0, need to fix")
-                print("GOT", len(last_positions), "reads")
-
+                ret = next(iterator, None)
+                if ret is not None:
+                    # Sometimes this works, somtimes it doesn't. Don't know why.
+                    position = self.alignment_file.tell()
+                    file_offset, block_offset = decode_virtual_offset(position)
+                    if block_offset != 0:
+                        block_start = file_offset << 16
+                        self.alignment_file.seek(block_start)
+                        for read in self.alignment_file:
+                            if read.reference_name == reference_name:
+                                last_positions.append(read.pos)
+                            else:
+                                break
             else:
                 print("GET EOF??")
             contig = Contig(
                 reference_name, length, initial_positions, last_positions)
             self.contigs.append(contig)
+            print(
+                "READ", contig.reference_name, len(initial_positions),
+                "initial reads", len(last_positions), "final reads")
 
     def verify_reads(self, iter1, iter2):
         """
@@ -98,7 +98,7 @@ class ServerTester(object):
         assert next(iter2, None) is None
         return num_reads
 
-    def verify_query(self, reference_name, start, end):
+    def verify_query(self, reference_name, start=None, end=None):
         """
         Runs the specified query and verifies the result.
         """
@@ -138,6 +138,14 @@ class ServerTester(object):
             end = random.randint(start, contig.length)
             self.verify_query(contig.reference_name, start, end)
 
+    def run_full_contig_fetch(self):
+        """
+        Gets all reads for contigs < 1Mb
+        """
+        for contig in self.contigs:
+            if contig.length < 10**6:
+                self.verify_query(contig.reference_name)
+
     def run_initial_reads(self):
         """
         Gets the first few reads from each contig.
@@ -146,6 +154,10 @@ class ServerTester(object):
             self.verify_query(
                 contig.reference_name,
                 contig.initial_positions[0],
+                contig.initial_positions[-1] + 1)
+            self.verify_query(
+                contig.reference_name,
+                None,
                 contig.initial_positions[-1] + 1)
             self.verify_query(
                 contig.reference_name,
@@ -166,6 +178,10 @@ class ServerTester(object):
                     contig.reference_name,
                     contig.final_positions[0],
                     contig.final_positions[-1] + 1)
+                self.verify_query(
+                    contig.reference_name,
+                    contig.final_positions[0],
+                    None)
                 self.verify_query(
                     contig.reference_name,
                     max(0, contig.final_positions[0] - 100),
@@ -201,6 +217,7 @@ if __name__ == "__main__":
     tester = ServerTester(args.bam_file, args.url, args.id)
     try:
         # TODO These don't work for the 8660_5#17.bam; why???
+        tester.run_full_contig_fetch()
         tester.run_initial_reads()
         tester.run_final_reads()
         tester.run_random_reads(10**6)
