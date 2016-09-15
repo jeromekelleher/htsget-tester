@@ -43,10 +43,11 @@ class ServerTester(object):
         fd, self.temp_file_name = tempfile.mkstemp(prefix="gastream_")
         os.close(fd)
         self.num_initial_reads = 10
+        self.max_references = 10
         # Determine the bounds of the individual contigs.
         self.contigs = []
         num_references = len(self.alignment_file.lengths)
-        for j in range(num_references):
+        for j in range(min(num_references, self.max_references)):
             reference_name = self.alignment_file.references[j]
             length = self.alignment_file.lengths[j]
             # Find the offset of the first k reads
@@ -81,6 +82,17 @@ class ServerTester(object):
                 "READ", contig.reference_name, len(initial_positions),
                 "initial reads", len(last_positions), "final reads")
 
+    def reads_equal(self, r1, r2):
+        ret = (
+            r1.query_name == r2.query_name and
+            r1.pos == r2.pos and
+            r1.cigarstring == r2.cigarstring and
+            r1.query_alignment_sequence == r2.query_alignment_sequence and
+            r1.query_alignment_qualities == r2.query_alignment_qualities)
+        return ret
+
+
+
     def verify_reads(self, iter1, iter2):
         """
         Verifies that the specified iterators contain the same set of
@@ -89,11 +101,11 @@ class ServerTester(object):
         num_reads = 0
         for r1, r2 in itertools.izip(iter1, iter2):
             num_reads += 1
-            if r1 != r2:
+            if not self.reads_equal(r1, r2):
                 print("ERROR")
                 print(r1)
                 print(r2)
-            assert r1 == r2
+                assert False
         assert next(iter1, None) is None
         assert next(iter2, None) is None
         return num_reads
