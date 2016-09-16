@@ -43,7 +43,7 @@ class ServerTester(object):
         fd, self.temp_file_name = tempfile.mkstemp(prefix="gastream_")
         os.close(fd)
         self.num_initial_reads = 10
-        self.max_references = 10
+        self.max_references = 100
         # Determine the bounds of the individual contigs.
         self.contigs = []
         num_references = len(self.alignment_file.lengths)
@@ -82,33 +82,44 @@ class ServerTester(object):
                 "READ", contig.reference_name, len(initial_positions),
                 "initial reads", len(last_positions), "final reads")
 
-    def reads_equal(self, r1, r2):
-        ret = (
+    def verify_reads_equal(self, r1, r2):
+        equal = (
             r1.query_name == r2.query_name and
             r1.pos == r2.pos and
             r1.cigarstring == r2.cigarstring and
             r1.query_alignment_sequence == r2.query_alignment_sequence and
             r1.query_alignment_qualities == r2.query_alignment_qualities)
-        return ret
+        # TODO add in more fields into this equality check
+        if not equal:
+            print("ERROR!!")
+            print(r1)
+            print(r2)
 
-
+            print(r1.query_name == r2.query_name)
+            print(r1.pos == r2.pos)
+            print(r1.cigarstring == r2.cigarstring)
+            print(r1.cigarstring)
+            print(r2.cigarstring)
+            print(r1.query_alignment_sequence == r2.query_alignment_sequence)
+            print(r1.query_alignment_sequence)
+            print(r2.query_alignment_sequence)
+            print(r1.query_alignment_qualities == r2.query_alignment_qualities)
+        assert equal
 
     def verify_reads(self, iter1, iter2):
         """
         Verifies that the specified iterators contain the same set of
         reads. Returns the number of reads in the iterators.
         """
-        num_reads = 0
-        for r1, r2 in itertools.izip(iter1, iter2):
-            num_reads += 1
-            if not self.reads_equal(r1, r2):
-                print("ERROR")
-                print(r1)
-                print(r2)
-                assert False
-        assert next(iter1, None) is None
-        assert next(iter2, None) is None
-        return num_reads
+        # We map the reads into dicts indexed by query_name to avoid
+        # ordering issues.
+        d1 = {r.query_name: r for r in iter1}
+        d2 = {r.query_name: r for r in iter2}
+        assert len(d1) == len(d2)
+        for k in d1.keys():
+            assert k in d2
+            self.verify_reads_equal(d1[k], d2[k])
+        return len(d1)
 
     def verify_query(self, reference_name, start=None, end=None):
         """
