@@ -9,6 +9,7 @@ import base64
 import os.path
 import logging
 import sys
+import socket
 
 import requests
 
@@ -20,6 +21,13 @@ else:
     from urllib.parse import urlparse
 
 CONTENT_LENGTH = "Content-Length"
+
+
+class ContentLengthMismatch(Exception):
+    """
+    The downloaded content length is different to the length specified in the
+    header.
+    """
 
 
 class Client(object):
@@ -102,10 +110,8 @@ class Client(object):
                 if CONTENT_LENGTH in response.headers:
                     content_length = int(response.headers[CONTENT_LENGTH])
                     if content_length != length:
-                        # TODO proper exception.
-                        raise ValueError(
-                            "Mismatch in downloaded length:{} != {}".format(
-                                content_length, length))
+                        raise ContentLengthMismatch("{} != {}".format(
+                            content_length, length))
                 successful = True
             except requests.Timeout as te:
                 logging.info("Timeout:{}".format(te))
@@ -113,6 +119,10 @@ class Client(object):
                 logging.info("Connection error: {}".format(ce))
             except requests.exceptions.HTTPError as he:
                 logging.info("HTTP error: {}".format(he))
+            except ContentLengthMismatch as clm:
+                logging.info("Mismatch in content length: {}".format(clm))
+            except socket.timeout:
+                logging.info("Socket timeout")
 
             num_attempts += 1
 

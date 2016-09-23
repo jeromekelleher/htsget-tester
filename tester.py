@@ -18,6 +18,33 @@ def decode_virtual_offset(virtual_offset):
     return virtual_offset >> 16, virtual_offset & 0xFFFF
 
 
+def hashkey(read):
+    """
+    Returns a unique hash key for the specified read. We cannot use the qname
+    as mates and secondary alignments have the same qname.
+    # (first of pair, second of pair, not primary alignment, supplementary alignment).
+    """
+    key = "{}_{}_{}_{}_{}_{}_{}".format(
+        read.query_name, read.pos, read.cigar,
+        int(read.is_read1), int(read.is_read2),
+        int(read.is_secondary), int(read.is_supplementary))
+    return key
+
+def filter_unmapped(iterator):
+    """
+    Returns an iterator over the specified iterator of reads with
+    all unmapped reads removed.
+    """
+    filtered = 0
+    for read in iterator:
+        if read.is_unmapped:
+            filtered += 1
+        else:
+            yield read
+    print("Filtered", filtered,  "reads")
+
+
+
 class Contig(object):
     """
     Represents a single contig within the BAM file.
@@ -35,10 +62,13 @@ class ServerTester(object):
     Class to run systematic tests on a server based on a local indexed
     BAM file.
     """
-    def __init__(self, source_file_name, server_url, read_group_set_id):
+    def __init__(
+            self, source_file_name, server_url, read_group_set_id,
+            filter_unmapped=False):
         self.source_file_name = source_file_name
         self.server_url = server_url
         self.read_group_set_id = read_group_set_id
+        self.filter_unmapped = filter_unmapped
         self.alignment_file = pysam.AlignmentFile(self.source_file_name)
         fd, self.temp_file_name = tempfile.mkstemp(prefix="gastream_")
         os.close(fd)
@@ -111,15 +141,27 @@ class ServerTester(object):
         Verifies that the specified iterators contain the same set of
         reads. Returns the number of reads in the iterators.
         """
-        # We map the reads into dicts indexed by query_name to avoid
-        # ordering issues.
-        d1 = {r.query_name: r for r in iter1}
-        d2 = {r.query_name: r for r in iter2}
-        assert len(d1) == len(d2)
-        for k in d1.keys():
-            assert k in d2
-            self.verify_reads_equal(d1[k], d2[k])
-        return len(d1)
+        d1 = {}
+        d2 = {}
+        last_pos = -1
+        num_reads = 0
+        for r1, r2 in itertools.izip(iter1, iter2):
+            num_reads += 1
+            if r1.pos != last_pos:
+                assert len(d1) == len(d2)
+                for k in d1.keys():
+                    assert k in d2
+                    self.verify_reads_equal(d1[k], d2[k])
+                d1 = {}
+                d2 = {}
+                last_pos = r1.pos
+            k = hashkey(r1)
+            assert k not in d1
+            d1[k] = r1
+            k = hashkey(r2)
+            assert k not in d2
+            d2[k] = r2
+        return num_reads
 
     def verify_query(self, reference_name, start=None, end=None):
         """
@@ -131,16 +173,19 @@ class ServerTester(object):
         client = gaclient.Client(
             self.server_url, self.read_group_set_id,
             reference_name, start, end, self.temp_file_name)
-        before = time.clock()
+        before = time.time()
         client.download()
         client.close()
-        duration = time.clock() - before
-        print("Downloaded in {} seconds".format(duration))
+        size = os.path.getsize(self.temp_file_name)
+        duration = time.time() - before
+        print("Downloaded in {:.2f} Mbs {} seconds".format(size / 1024**2, duration))
         # Index the downloaded file and compare the reads.
         pysam.index(self.temp_file_name)
         subset_reads = pysam.AlignmentFile(self.temp_file_name)
         iter1 = self.alignment_file.fetch(reference_name, start, end)
         iter2 = subset_reads.fetch(reference_name, start, end)
+        if self.filter_unmapped:
+            iter1 = filter_unmapped(iter1)
         num_reads = self.verify_reads(iter1, iter2)
         # Now count the reads outside the original region.
         subset_reads.reset()
@@ -235,11 +280,14 @@ if __name__ == "__main__":
         "url", type=str, help="The URL prefix of the server")
     parser.add_argument(
         "id", type=str, help="The ID of the ReadGroupSet")
+    parser.add_argument(
+        "--filter-unmapped", action='store_true',
+        help="Filter out unmapped reads before comparing reads.")
 
     args = parser.parse_args()
-    tester = ServerTester(args.bam_file, args.url, args.id)
+    tester = ServerTester(
+        args.bam_file, args.url, args.id, args.filter_unmapped)
     try:
-        # TODO These don't work for the 8660_5#17.bam; why???
         tester.run_full_contig_fetch()
         tester.run_initial_reads()
         tester.run_final_reads()
