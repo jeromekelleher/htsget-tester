@@ -10,6 +10,7 @@ import os.path
 import logging
 import sys
 import socket
+import time
 
 import requests
 
@@ -17,8 +18,10 @@ IS_PY2 = sys.version_info[0] < 3
 
 if IS_PY2:
     from urlparse import urlparse
+    from httplib import HTTPException
 else:
     from urllib.parse import urlparse
+    from urllib.error import HTTPException
 
 CONTENT_LENGTH = "Content-Length"
 
@@ -98,6 +101,10 @@ class Client(object):
             if num_attempts == self.__max_attempts:
                 # TODO proper exception.
                 raise ValueError("Too many retries")
+            if num_attempts > 0:
+                # Sleep for a while to give the server a chance.
+                # TODO proper exponential backoff, or make this a tunable parameter?
+                time.sleep(10)
             try:
                 self.__resume_checkpoint()
                 response = requests.request(
@@ -113,16 +120,12 @@ class Client(object):
                         raise ContentLengthMismatch("{} != {}".format(
                             content_length, length))
                 successful = True
-            except requests.Timeout as te:
-                logging.info("Timeout:{}".format(te))
-            except requests.ConnectionError as ce:
-                logging.info("Connection error: {}".format(ce))
-            except requests.exceptions.HTTPError as he:
-                logging.info("HTTP error: {}".format(he))
-            except ContentLengthMismatch as clm:
-                logging.info("Mismatch in content length: {}".format(clm))
-            except socket.timeout:
-                logging.info("Socket timeout")
+            except Exception as e:
+                # Usually it's bad programming practise to just have a blanket exception
+                # catch like this, but there are too many different types of exception
+                # that can occur for many different libraries for us to catch them
+                # reliably any other way.
+                logging.info("Exception occured:{}".format(e))
 
             num_attempts += 1
 
@@ -150,8 +153,26 @@ class Client(object):
             params["end"] = self.__end
         # TODO add format and other query parameters.
         url = os.path.join(self.__base_url, self.__id)
-        response = requests.get(url, params=params)
-        response.raise_for_status()
+
+        # TODO abstract out this retry logic.
+        successful = False
+        num_attempts = 0
+        while not successful:
+            if num_attempts == self.__max_attempts:
+                # TODO proper exception.
+                raise ValueError("Too many retries")
+            if num_attempts > 0:
+                # Sleep for a while to give the server a chance.
+                # TODO proper exponential backoff, or make this a tunable parameter?
+                time.sleep(10)
+            try:
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                successful = True
+            except Exception as e:
+                logging.info("Exception occured:{}".format(e))
+            num_attempts += 1
+
         ticket = response.json()
         for url_object in ticket["urls"]:
             url = url_object["url"]

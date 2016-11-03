@@ -69,8 +69,10 @@ class ServerTester(object):
         self.server_url = server_url
         self.read_group_set_id = read_group_set_id
         self.filter_unmapped = filter_unmapped
+        tmpdir = "tmp__NOBACKUP__" # TODO add parameter
         self.alignment_file = pysam.AlignmentFile(self.source_file_name)
-        fd, self.temp_file_name = tempfile.mkstemp(prefix="gastream_")
+        fd, self.temp_file_name = tempfile.mkstemp(
+                prefix="gastream_", dir=tmpdir)
         os.close(fd)
         self.num_initial_reads = 10
         self.max_references = 100
@@ -105,12 +107,15 @@ class ServerTester(object):
                                 break
             else:
                 print("GET EOF??")
-            contig = Contig(
-                reference_name, length, initial_positions, last_positions)
-            self.contigs.append(contig)
-            print(
-                "READ", contig.reference_name, len(initial_positions),
-                "initial reads", len(last_positions), "final reads")
+            if len(initial_positions) > 0:
+                contig = Contig(
+                    reference_name, length, initial_positions, last_positions)
+                self.contigs.append(contig)
+                print(
+                    "READ", contig.reference_name, len(initial_positions),
+                    "initial reads", len(last_positions), "final reads")
+            else:
+                print("Skipping empty contig", reference_name)
 
     def verify_reads_equal(self, r1, r2):
         equal = (
