@@ -11,8 +11,10 @@ import random
 import os.path
 import argparse
 
-import gaclient
+import htsget
 
+
+__version__ = 0.1
 
 def decode_virtual_offset(virtual_offset):
     return virtual_offset >> 16, virtual_offset & 0xFFFF
@@ -174,15 +176,20 @@ class ServerTester(object):
         """
         print("reference_name, start, end = '{}', {}, {}".format(
             reference_name, start, end))
-        # TODO refactor client to be a persistent object
-        client = gaclient.Client(
-            self.server_url, self.read_group_set_id,
-            reference_name, start, end, self.temp_file_name)
+        # # TODO refactor client to be a persistent object
+        # client = gaclient.Client(
+        #     self.server_url, self.read_group_set_id,
+        #     reference_name, start, end, self.temp_file_name)
+        # before = time.time()
+        # client.download()
+        # client.close()
         before = time.time()
-        client.download()
-        client.close()
-        size = os.path.getsize(self.temp_file_name)
+        with open(self.temp_file_name, "w") as tmp:
+            htsget.get(
+                self.server_url + self.read_group_set_id, tmp,
+                reference_name=reference_name, start=start, end=end)
         duration = time.time() - before
+        size = os.path.getsize(self.temp_file_name)
         print("Downloaded in {:.2f} Mbs {} seconds".format(size / 1024**2, duration))
         # Index the downloaded file and compare the reads.
         pysam.index(self.temp_file_name)
@@ -277,7 +284,7 @@ if __name__ == "__main__":
         description="A simple tester application for the GA4GH streaming API.")
     parser.add_argument(
         "-V", "--version", action='version',
-        version='%(prog)s {}'.format(gaclient.__version__))
+        version='%(prog)s {}'.format(__version__))
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument(
         "bam_file", type=str, help="The local BAM file to compare to")
