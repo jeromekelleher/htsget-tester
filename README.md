@@ -1,6 +1,11 @@
-# ga4gh-streaming-client
+# GA4GH Streaming API tester.
 
-A Python implementation of the draft API spec at 
+A tester for the draft API spec at 
 
 https://docs.google.com/document/d/1OSPfxdJ3uPoCfUVzMaekCOPF5sNEwqkJEUj-SjlECy0
+
+## Usage
+
+```bash
+$ git clone https://github.com/jeromekelleher/ga4gh-streaming-client.git
 
