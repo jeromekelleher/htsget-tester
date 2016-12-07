@@ -1,3 +1,6 @@
+"""
+Data tester for the GA4GH streaming API.
+"""
 from __future__ import print_function
 from __future__ import division
 
@@ -14,7 +17,14 @@ import argparse
 import htsget
 
 
-__version__ = 0.1
+__version__ = "0.1.0"
+
+
+class TestFailedException(Exception):
+    """
+    Exception raised when we know we've failed.
+    """
+
 
 def decode_virtual_offset(virtual_offset):
     return virtual_offset >> 16, virtual_offset & 0xFFFF
@@ -32,6 +42,7 @@ def hashkey(read):
         int(read.is_secondary), int(read.is_supplementary))
     return key
 
+
 def filter_unmapped(iterator):
     """
     Returns an iterator over the specified iterator of reads with
@@ -43,8 +54,7 @@ def filter_unmapped(iterator):
             filtered += 1
         else:
             yield read
-    print("Filtered", filtered,  "reads")
-
+    logging.info("Filtered {} reads".format(filtered))
 
 
 class Contig(object):
@@ -65,33 +75,43 @@ class ServerTester(object):
     BAM file.
     """
     def __init__(
-            self, source_file_name, server_url, read_group_set_id,
-            filter_unmapped=False):
+            self, source_file_name, server_url, filter_unmapped=False, tmpdir=None,
+            num_initial_reads=10, max_references=100):
         self.source_file_name = source_file_name
         self.server_url = server_url
-        self.read_group_set_id = read_group_set_id
         self.filter_unmapped = filter_unmapped
-        tmpdir = "tmp__NOBACKUP__" # TODO add parameter
+        self.tmpdir = tmpdir
         self.alignment_file = pysam.AlignmentFile(self.source_file_name)
-        fd, self.temp_file_name = tempfile.mkstemp(
-                prefix="gastream_", dir=tmpdir)
-        os.close(fd)
-        self.num_initial_reads = 10
-        self.max_references = 100
-        # Determine the bounds of the individual contigs.
+        self.temp_file_name = None
+        self.num_initial_reads = num_initial_reads
+        self.max_references = max_references
         self.contigs = []
-        num_references = len(self.alignment_file.lengths)
-        for j in range(min(num_references, self.max_references)):
+
+    def initialise(self):
+        """
+        Scans the input BAM file and initialises the data structures we need for the
+        tests.
+        """
+        fd, self.temp_file_name = tempfile.mkstemp(
+            prefix="gastream_test_", dir=self.tmpdir)
+        os.close(fd)
+        # Determine the bounds of the individual contigs.
+        total_references = len(self.alignment_file.lengths)
+        num_references = min(self.max_references, total_references)
+        logging.info("Reading file {}".format(self.source_file_name))
+        for j in range(num_references):
             reference_name = self.alignment_file.references[j]
             length = self.alignment_file.lengths[j]
+            # TODO factor out this code somewhere else.
             # Find the offset of the first k reads
             initial_positions = []
             for read in self.alignment_file.fetch(reference_name):
                 initial_positions.append(read.pos)
                 if len(initial_positions) == self.num_initial_reads:
                     break
+            # Find the positions of the last reads in this reference.
             last_positions = []
-            if j < num_references - 1:
+            if j < total_references - 1:
                 iterator = self.alignment_file.fetch(
                     self.alignment_file.references[j + 1])
                 ret = next(iterator, None)
@@ -107,41 +127,36 @@ class ServerTester(object):
                                 last_positions.append(read.pos)
                             else:
                                 break
-            else:
-                print("GET EOF??")
             if len(initial_positions) > 0:
                 contig = Contig(
                     reference_name, length, initial_positions, last_positions)
                 self.contigs.append(contig)
-                print(
-                    "READ", contig.reference_name, len(initial_positions),
-                    "initial reads", len(last_positions), "final reads")
+                msg = (
+                    "Read contig {}: got {} start positions and {} end "
+                    "positions".format(
+                        contig.reference_name, len(initial_positions),
+                        len(last_positions)))
+                logging.info(msg)
             else:
-                print("Skipping empty contig", reference_name)
+                logging.info("Skipping empty contig {}".format(reference_name))
 
     def verify_reads_equal(self, r1, r2):
+        # TODO add in more fields into this equality check
         equal = (
             r1.query_name == r2.query_name and
             r1.pos == r2.pos and
             r1.cigarstring == r2.cigarstring and
             r1.query_alignment_sequence == r2.query_alignment_sequence and
-            r1.query_alignment_qualities == r2.query_alignment_qualities)
-        # TODO add in more fields into this equality check
+            r1.query_alignment_qualities == r2.query_alignment_qualities and
+            r1.template_length == r2.template_length and
+            r1.next_reference_id == r2.next_reference_id and
+            r1.next_reference_start == r2.next_reference_start and
+            sorted(r1.get_tags()) == sorted(r2.get_tags()))
         if not equal:
-            print("ERROR!!")
+            print("Error occured; exiting")
             print(r1)
             print(r2)
-
-            print(r1.query_name == r2.query_name)
-            print(r1.pos == r2.pos)
-            print(r1.cigarstring == r2.cigarstring)
-            print(r1.cigarstring)
-            print(r2.cigarstring)
-            print(r1.query_alignment_sequence == r2.query_alignment_sequence)
-            print(r1.query_alignment_sequence)
-            print(r2.query_alignment_sequence)
-            print(r1.query_alignment_qualities == r2.query_alignment_qualities)
-        assert equal
+            raise TestFailedException("Reads not equal")
 
     def verify_reads(self, iter1, iter2):
         """
@@ -174,28 +189,24 @@ class ServerTester(object):
         """
         Runs the specified query and verifies the result.
         """
-        print("reference_name, start, end = '{}', {}, {}".format(
-            reference_name, start, end))
-        # # TODO refactor client to be a persistent object
-        # client = gaclient.Client(
-        #     self.server_url, self.read_group_set_id,
-        #     reference_name, start, end, self.temp_file_name)
-        # before = time.time()
-        # client.download()
-        # client.close()
+        logging.info("Running request ('{}', {}, {})".format(reference_name, start, end))
         before = time.time()
         with open(self.temp_file_name, "w") as tmp:
             htsget.get(
-                self.server_url + self.read_group_set_id, tmp,
-                reference_name=reference_name, start=start, end=end)
+                self.server_url, tmp, reference_name=reference_name, start=start,
+                end=end)
         duration = time.time() - before
         size = os.path.getsize(self.temp_file_name)
-        print("Downloaded in {:.2f} Mbs {} seconds".format(size / 1024**2, duration))
+        logging.info("Downloaded {:.2f} Mbs in {} seconds".format(
+            size / 1024**2, duration))
         # Index the downloaded file and compare the reads.
         pysam.index(self.temp_file_name)
         subset_reads = pysam.AlignmentFile(self.temp_file_name)
         iter1 = self.alignment_file.fetch(reference_name, start, end)
-        iter2 = subset_reads.fetch(reference_name, start, end)
+        try:
+            iter2 = subset_reads.fetch(reference_name, start, end)
+        except ValueError as ve:
+            raise TestFailedException("Reading downloaded data: {}".format(ve))
         if self.filter_unmapped:
             iter1 = filter_unmapped(iter1)
         num_reads = self.verify_reads(iter1, iter2)
@@ -205,7 +216,7 @@ class ServerTester(object):
         for read in subset_reads:
             all_reads += 1
         extra = all_reads - num_reads
-        print(num_reads, "read with", extra, "extra reads")
+        logging.info("Downloaded {} reads with {} extra".format(num_reads, extra))
 
     def run_random_reads(self, num_tests):
         """
@@ -225,6 +236,9 @@ class ServerTester(object):
         for contig in self.contigs:
             if contig.length < 10**6:
                 self.verify_query(contig.reference_name)
+            else:
+                logging.info("Skipping full fetch for {}; too long".format(
+                    contig.reference_name))
 
     def run_initial_reads(self):
         """
@@ -267,18 +281,18 @@ class ServerTester(object):
                     max(0, contig.final_positions[0] - 100),
                     contig.final_positions[0] + 1)
             else:
-                print("Skipping final for ", contig.reference_name)
+                logging.info("Skipping end reads for {}".format(contig.reference_name))
 
     def cleanup(self):
         self.alignment_file.close()
-        os.unlink(self.temp_file_name)
-        index_file = self.temp_file_name + ".bai"
-        if os.path.exists(index_file):
-            os.unlink(index_file)
+        if os.path.exists(self.temp_file_name):
+            os.unlink(self.temp_file_name)
+            index_file = self.temp_file_name + ".bai"
+            if os.path.exists(index_file):
+                os.unlink(index_file)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(
         description="A simple tester application for the GA4GH streaming API.")
@@ -289,20 +303,41 @@ if __name__ == "__main__":
     parser.add_argument(
         "bam_file", type=str, help="The local BAM file to compare to")
     parser.add_argument(
-        "url", type=str, help="The URL prefix of the server")
-    parser.add_argument(
-        "id", type=str, help="The ID of the ReadGroupSet")
+        "url", type=str, help="The server url corresponding to the input BAM file.")
     parser.add_argument(
         "--filter-unmapped", action='store_true',
         help="Filter out unmapped reads before comparing reads.")
+    parser.add_argument(
+        "--tmpdir", type=str,
+        help=(
+            "Directory in which to store temporary files. "
+            "Defaults to platform default"))
+    parser.add_argument(
+        "--max-references", type=int, default=100,
+        help="The maximum number of references to consider")
+    parser.add_argument(
+        "--num-random-reads", type=int, default=10**3,
+        help="The number of random queries to send")
 
     args = parser.parse_args()
+    log_level = logging.WARNING
+    if args.verbose == 1:
+        log_level = logging.INFO
+    if args.verbose >= 2:
+        log_level = logging.DEBUG
+    logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
     tester = ServerTester(
-        args.bam_file, args.url, args.id, args.filter_unmapped)
+        args.bam_file, args.url, filter_unmapped=args.filter_unmapped,
+        tmpdir=args.tmpdir, max_references=args.max_references)
     try:
+        tester.initialise()
+        logging.info("Starting full contig queries")
         tester.run_full_contig_fetch()
+        logging.info("Starting contig start queries")
         tester.run_initial_reads()
+        logging.info("Starting contig end queries")
         tester.run_final_reads()
-        tester.run_random_reads(10**6)
+        logging.info("Starting random queries")
+        tester.run_random_reads(args.num_random_reads)
     finally:
         tester.cleanup()
