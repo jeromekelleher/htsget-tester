@@ -16,6 +16,7 @@ import time
 
 import htsget
 import pysam
+import humanize
 
 from six.moves import zip
 
@@ -86,11 +87,51 @@ class Contig(object):
         self.end_positions = end_positions
 
 
+class Field(object):
+    """
+    A class to simplify comparing a single field in two different Pysam Read
+    records.
+    """
+    def __init__(self, name, equals):
+        self.name = name
+        self.equals = equals
+
+
+def simple_equality(v1, v2):
+    """
+    Equality for simple fields where equality can be tested directly.
+    """
+    return v1 == v2
+
+
+def sorted_equality(v1, v2):
+    """
+    Equality for fields where the values must be sorted before equality tested.
+    """
+    return sorted(v1) == sorted(v2)
+
+
 class ServerTester(object):
     """
     Class to run systematic tests on a server based on a local indexed
     BAM file.
     """
+    fields = [
+        Field("pos", simple_equality),
+        Field("query_name", simple_equality),
+        Field("reference_name", simple_equality),
+        Field("cigarstring", simple_equality),
+        Field("query_alignment_sequence", simple_equality),
+        Field("query_alignment_qualities", simple_equality),
+        Field("template_length", simple_equality),
+        Field("next_reference_id", simple_equality),
+        Field("next_reference_start", simple_equality),
+        Field("flag", simple_equality),
+        Field("mapping_quality", simple_equality),
+        Field("tags", sorted_equality),
+        # TODO fill in remaining BAM fields.
+    ]
+
     def __init__(
             self, source_file_name, server_url, filter_unmapped=False, tmpdir=None,
             num_boundary_reads=10, max_references=100, client=None):
@@ -104,6 +145,9 @@ class ServerTester(object):
         self.max_references = max_references
         self.client = client
         self.contigs = []
+        self.mismatch_counts = collections.Counter()
+        self.total_downloaded_data = 0
+        self.total_download_time = 1e-8  # Avoid zero division problems
 
     def get_start_positions(self, reference_name):
         """
@@ -163,22 +207,13 @@ class ServerTester(object):
                 logging.info("Skipping empty contig {}".format(reference_name))
 
     def verify_reads_equal(self, r1, r2):
-        # TODO add in more fields into this equality check
-        equal = (
-            r1.query_name == r2.query_name and
-            r1.pos == r2.pos and
-            r1.cigarstring == r2.cigarstring and
-            r1.query_alignment_sequence == r2.query_alignment_sequence) #and
-            # r1.query_alignment_qualities == r2.query_alignment_qualities and
-            # r1.template_length == r2.template_length and
-            # r1.next_reference_id == r2.next_reference_id and
-            # r1.next_reference_start == r2.next_reference_start and
-            # sorted(r1.get_tags()) == sorted(r2.get_tags()))
-        if not equal:
-            print("Error occured; exiting")
-            print(r1)
-            print(r2)
-            raise TestFailedException("Reads not equal")
+        for field in self.fields:
+            v1 = getattr(r1, field.name)
+            v2 = getattr(r2, field.name)
+            if not field.equals(v1, v2):
+                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(
+                    r1.reference_name, r1.pos, field.name, v1, v2))
+                self.mismatch_counts[field.name] += 1
 
     def verify_reads(self, iter1, iter2):
         """
@@ -189,13 +224,16 @@ class ServerTester(object):
         d2 = {}
         last_pos = -1
         num_reads = 0
+        num_checks = 0
         for r1, r2 in zip(iter1, iter2):
             num_reads += 1
             if r1.pos != last_pos:
                 assert len(d1) == len(d2)
                 for k in d1.keys():
+                    # TODO change these asserts to raise a TestFailedException
                     assert k in d2
                     self.verify_reads_equal(d1[k], d2[k])
+                    num_checks += 1
                 d1 = {}
                 d2 = {}
                 last_pos = r1.pos
@@ -205,20 +243,30 @@ class ServerTester(object):
             k = hashkey(r2)
             assert k not in d2
             d2[k] = r2
+        # Check the last set of reads in the dictionaries.
+        assert len(d1) == len(d2)
+        for k in d1.keys():
+            assert k in d2
+            self.verify_reads_equal(d1[k], d2[k])
+            num_checks += 1
+        assert num_checks == num_reads
         return num_reads
 
     def verify_query(self, reference_name, start=None, end=None):
         """
         Runs the specified query and verifies the result.
         """
+        # We use the wall-clock time here
         before = time.time()
         self.client(
             self.server_url, self.temp_file_name, reference_name=reference_name,
             start=start, end=end)
         duration = time.time() - before
         size = os.path.getsize(self.temp_file_name)
-        logging.info("Downloaded {:.2f} Mbs in {} seconds".format(
-            size / 1024**2, duration))
+        self.total_downloaded_data += size
+        self.total_download_time += duration
+        logging.info("Downloaded {} in {:.3f} seconds".format(
+            humanize.naturalsize(size, binary=True), duration))
         # Index the downloaded file and compare the reads.
         pysam.index(self.temp_file_name)
         subset_reads = pysam.AlignmentFile(self.temp_file_name)
@@ -315,6 +363,17 @@ class ServerTester(object):
             if os.path.exists(index_file):
                 os.unlink(index_file)
 
+    def report(self):
+        # TODO provide options to make this machine readable.
+        megabytes = self.total_downloaded_data / (1024**2)
+        average_bandwidth = megabytes / self.total_download_time
+        print("{} total downloaded at an average of {:.2f} Mib/s".format(
+            humanize.naturalsize(self.total_downloaded_data, binary=True),
+            average_bandwidth))
+        print("Total mismatches = ", sum(self.mismatch_counts.values()))
+        for name in sorted(self.mismatch_counts.keys()):
+            print("", name, self.mismatch_counts[name], sep="\t")
+
 
 if __name__ == "__main__":
 
@@ -348,6 +407,11 @@ if __name__ == "__main__":
         "--num-random-reads", type=int, default=10**3,
         help="The number of random queries to send")
     parser.add_argument(
+        "--random-seed", type=int, default=1,
+        help=(
+            "The random seed. Use this to ensure that the same set of queries is "
+            "run across different client/server combinations."))
+    parser.add_argument(
         "--client", choices=list(client_map.keys()), default="htsget-api",
         help="The client to use for running the transfer")
 
@@ -368,5 +432,8 @@ if __name__ == "__main__":
         tester.run_start_reads()
         tester.run_end_reads()
         tester.run_random_reads(args.num_random_reads)
+    except KeyboardInterrupt:
+        logging.warn("Interrupted!")
     finally:
         tester.cleanup()
+    tester.report()

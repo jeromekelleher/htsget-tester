@@ -1,3 +1,4 @@
+humanize
 htsget
 pysam
 six
