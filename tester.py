@@ -134,11 +134,13 @@ class ServerTester(object):
 
     def __init__(
             self, source_file_name, server_url, filter_unmapped=False, tmpdir=None,
-            num_boundary_reads=10, max_references=100, client=None):
+            num_boundary_reads=10, max_references=100, max_random_query_length=10**6,
+            client=None):
         self.source_file_name = source_file_name
         self.server_url = server_url
         self.filter_unmapped = filter_unmapped
         self.tmpdir = tmpdir
+        self.max_random_query_length = max_random_query_length
         self.alignment_file = pysam.AlignmentFile(self.source_file_name)
         self.temp_file_name = None
         self.num_boundary_reads = num_boundary_reads
@@ -146,6 +148,7 @@ class ServerTester(object):
         self.client = client
         self.contigs = []
         self.mismatch_counts = collections.Counter()
+        self.total_queries = 0
         self.total_downloaded_data = 0
         self.total_download_time = 1e-8  # Avoid zero division problems
 
@@ -256,6 +259,7 @@ class ServerTester(object):
         """
         Runs the specified query and verifies the result.
         """
+        self.total_queries += 1
         # We use the wall-clock time here
         before = time.time()
         self.client(
@@ -268,7 +272,13 @@ class ServerTester(object):
         logging.info("Downloaded {} in {:.3f} seconds".format(
             humanize.naturalsize(size, binary=True), duration))
         # Index the downloaded file and compare the reads.
+        before = time.clock()
         pysam.index(self.temp_file_name)
+        duration = time.clock() - before
+        logging.debug("Indexed BAM file in {:.3f} CPU seconds".format(duration))
+
+        # Analyse the reads
+        before = time.clock()
         subset_reads = pysam.AlignmentFile(self.temp_file_name)
         iter1 = self.alignment_file.fetch(reference_name, start, end)
         try:
@@ -284,6 +294,8 @@ class ServerTester(object):
         for read in subset_reads:
             all_reads += 1
         extra = all_reads - num_reads
+        duration = time.clock() - before
+        logging.debug("Checked reads in {:.3f} CPU seconds".format(duration))
         logging.info("Downloaded {} reads with {} extra".format(num_reads, extra))
 
     def run_random_reads(self, num_tests):
@@ -295,7 +307,8 @@ class ServerTester(object):
         for _ in range(num_tests):
             contig = random.choice(self.contigs)
             start = random.randint(0, contig.length)
-            end = random.randint(start, contig.length)
+            end = random.randint(
+                start, min(start + self.max_random_query_length, contig.length))
             self.verify_query(contig.reference_name, start, end)
 
     def run_full_contig_fetch(self):
@@ -367,7 +380,8 @@ class ServerTester(object):
         # TODO provide options to make this machine readable.
         megabytes = self.total_downloaded_data / (1024**2)
         average_bandwidth = megabytes / self.total_download_time
-        print("{} total downloaded at an average of {:.2f} Mib/s".format(
+        print("{} queries downloaded {} of data at an average of {:.2f} Mib/s".format(
+            humanize.intword(self.total_queries),
             humanize.naturalsize(self.total_downloaded_data, binary=True),
             average_bandwidth))
         print("Total mismatches = ", sum(self.mismatch_counts.values()))
@@ -404,13 +418,16 @@ if __name__ == "__main__":
         "--max-references", type=int, default=100,
         help="The maximum number of references to consider")
     parser.add_argument(
-        "--num-random-reads", type=int, default=10**3,
+        "--num-random-reads", type=int, default=20,
         help="The number of random queries to send")
     parser.add_argument(
         "--random-seed", type=int, default=1,
         help=(
             "The random seed. Use this to ensure that the same set of queries is "
             "run across different client/server combinations."))
+    parser.add_argument(
+        "--max-random-query-length", type=int, default=10**7,
+        help="The maximum length of a random query in bases")
     parser.add_argument(
         "--client", choices=list(client_map.keys()), default="htsget-api",
         help="The client to use for running the transfer")
