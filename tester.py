@@ -49,6 +49,12 @@ class TestFailedException(Exception):
     """
 
 
+class DownloadFailedException(Exception):
+    """
+    Exception raised when we downloading the data failed for some reason.
+    """
+
+
 def hashkey(read):
     """
     Returns a unique hash key for the specified read. We cannot use the qname
@@ -296,12 +302,12 @@ class ServerTester(object):
 
         # Analyse the reads
         before = time.clock()
-        subset_reads = pysam.AlignmentFile(self.temp_file_name)
         iter1 = self.alignment_file.fetch(reference_name, start, end)
         try:
+            subset_reads = pysam.AlignmentFile(self.temp_file_name)
             iter2 = subset_reads.fetch(reference_name, start, end)
         except ValueError as ve:
-            raise TestFailedException("Reading downloaded data: {}".format(ve))
+            raise DownloadFailedException("Reading downloaded data: {}".format(ve))
         if self.filter_unmapped:
             iter1 = filter_unmapped(iter1)
         num_reads = self.verify_reads(iter1, iter2)
@@ -460,20 +466,26 @@ if __name__ == "__main__":
         args.bam_file, args.url, filter_unmapped=args.filter_unmapped,
         tmpdir=args.tmpdir, max_references=args.max_references,
         client=client_map[args.client])
+    exit_status = 1
     try:
-        failed = False
         tester.initialise()
         tester.run_full_contig_fetch()
         tester.run_start_reads()
         tester.run_end_reads()
         tester.run_random_reads(args.num_random_reads)
+        exit_status = 0
+    except DownloadFailedException as dfe:
+        print("Download failed: ", dfe, file=sys.stderr)
+        exit_status = 1
     except TestFailedException as tfe:
-        logging.warn("Test failure:{}".format(tfe))
-        failed = True
+        print("Test failed:", tfe, ". Is the file correct?", file=sys.stderr)
+        exit_status = 1
     except KeyboardInterrupt:
         logging.warn("Interrupted!")
+        exit_status = 0
     finally:
         tester.cleanup()
-    if failed:
-        sys.exit("Tests failed; please check the input file is correct")
-    tester.report()
+    # If everything went OK, write out a report.
+    if exit_status == 0:
+        tester.report()
+    sys.exit(exit_status)
