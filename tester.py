@@ -9,8 +9,9 @@ import collections
 import logging
 import os
 import os.path
-import subprocess
 import random
+import subprocess
+import sys
 import tempfile
 import time
 
@@ -223,36 +224,52 @@ class ServerTester(object):
         Verifies that the specified iterators contain the same set of
         reads. Returns the number of reads in the iterators.
         """
+
+        def check_reads_for_position(d1, d2):
+            num_checks = 0
+            if len(d1) != len(d2):
+                raise TestFailedException("different numbers of reads returned")
+            for k in d1.keys():
+                if k not in d2:
+                    raise TestFailedException("{} not found".format(k))
+                self.verify_reads_equal(d1[k], d2[k])
+                num_checks += 1
+            return num_checks
+
+        # Because the order of reads for a given position is unspecified,
+        # we gather the reads for each iterator into dictionaries indexed
+        # by a (hopefully) unique combination of fields.
         d1 = {}
         d2 = {}
         last_pos = -1
         num_reads = 0
-        num_checks = 0
+        total_checks = 0
         for r1, r2 in zip(iter1, iter2):
             num_reads += 1
+            if r1.pos != r2.pos:
+                raise TestFailedException("Non-matching read positions")
             if r1.pos != last_pos:
-                assert len(d1) == len(d2)
-                for k in d1.keys():
-                    # TODO change these asserts to raise a TestFailedException
-                    assert k in d2
-                    self.verify_reads_equal(d1[k], d2[k])
-                    num_checks += 1
-                d1 = {}
-                d2 = {}
+                total_checks += check_reads_for_position(d1, d2)
+                d1.clear()
+                d2.clear()
                 last_pos = r1.pos
             k = hashkey(r1)
-            assert k not in d1
+            if k in d1:
+                raise TestFailedException("Duplicate read: {}".format(k))
             d1[k] = r1
             k = hashkey(r2)
-            assert k not in d2
+            if k in d2:
+                raise TestFailedException("Duplicate read: {}".format(k))
             d2[k] = r2
+
         # Check the last set of reads in the dictionaries.
-        assert len(d1) == len(d2)
-        for k in d1.keys():
-            assert k in d2
-            self.verify_reads_equal(d1[k], d2[k])
-            num_checks += 1
-        assert num_checks == num_reads
+        total_checks += check_reads_for_position(d1, d2)
+        # make sure both iterators are empty
+        r1 = next(iter1, None)
+        r2 = next(iter2, None)
+        if r1 is not None or r2 is not None:
+            raise TestFailedException("Total number of reads not matching")
+        assert total_checks == num_reads
         return num_reads
 
     def verify_query(self, reference_name, start=None, end=None):
@@ -444,13 +461,19 @@ if __name__ == "__main__":
         tmpdir=args.tmpdir, max_references=args.max_references,
         client=client_map[args.client])
     try:
+        failed = False
         tester.initialise()
         tester.run_full_contig_fetch()
         tester.run_start_reads()
         tester.run_end_reads()
         tester.run_random_reads(args.num_random_reads)
+    except TestFailedException as tfe:
+        logging.warn("Test failure:{}".format(tfe))
+        failed = True
     except KeyboardInterrupt:
         logging.warn("Interrupted!")
     finally:
         tester.cleanup()
+    if failed:
+        sys.exit("Tests failed; please check the input file is correct")
     tester.report()
