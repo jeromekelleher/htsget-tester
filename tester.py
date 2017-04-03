@@ -58,9 +58,13 @@ def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
 
         cmd.extend([str(namespace)])
         cmd.extend([str(accession)])
-
-        if start is not None and end is not None:
-            cmd.extend( ["-r", str(start).strip()+"-"+str(end).strip()] )
+        
+        
+        if reference_name is not None:
+            ref = str(reference_name)
+            if start is not None and end is not None:
+                ref += ":"+str(start)+"-"+str(end)
+            cmd.extend(["-r", ref])
 
         logging.info("htsnexus: run {}".format(" ".join(cmd)))
 
@@ -478,7 +482,7 @@ if __name__ == "__main__":
         "--max-random-query-length", type=int, default=10**7,
         help="The maximum length of a random query in bases")
     parser.add_argument(
-        "--client", choices=list(client_map.keys()), default="dnanexus-cli",
+        "--client", choices=list(client_map.keys()), default="htsget-api",
         help="The client to use for running the transfer")
 
     args = parser.parse_args()
@@ -495,7 +499,7 @@ if __name__ == "__main__":
     exit_status = 1
     try:
         tester.initialise()
-        #
+        # comment
         tester.run_full_contig_fetch()
         tester.run_start_reads()
         tester.run_end_reads()
