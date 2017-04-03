@@ -43,6 +43,31 @@ def htsget_cli(url, filename, reference_name=None, start=None, end=None):
     subprocess.check_call(cmd)
 
 
+def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
+
+        url_segments = url.split('/')
+
+        namespace = url_segments[-2]
+        accession = url_segments[-1]
+
+        logging.info("accession={}".format(accession))
+
+        server = "/".join(url_segments[:-2])
+
+        cmd = ["htsnexus.py", "-s", server]
+
+        cmd.extend([str(namespace)])
+        cmd.extend([str(accession)])
+
+        if start is not None and end is not None:
+            cmd.extend( ["-r", str(start).strip()+"-"+str(end).strip()] )
+
+        logging.info("htsnexus: run {}".format(" ".join(cmd)))
+
+        with open(filename, "w") as outfile:
+            subprocess.check_call(cmd, stdout=outfile)
+
+
 class TestFailedException(Exception):
     """
     Exception raised when we know we've failed.
@@ -417,6 +442,7 @@ if __name__ == "__main__":
     client_map = {
         "htsget-api": htsget_api,
         "htsget-cli": htsget_cli,
+        "dnanexus-cli": dnanexus_cli
     }
 
     parser = argparse.ArgumentParser(
@@ -452,7 +478,7 @@ if __name__ == "__main__":
         "--max-random-query-length", type=int, default=10**7,
         help="The maximum length of a random query in bases")
     parser.add_argument(
-        "--client", choices=list(client_map.keys()), default="htsget-api",
+        "--client", choices=list(client_map.keys()), default="dnanexus-cli",
         help="The client to use for running the transfer")
 
     args = parser.parse_args()
@@ -469,6 +495,7 @@ if __name__ == "__main__":
     exit_status = 1
     try:
         tester.initialise()
+        #
         tester.run_full_contig_fetch()
         tester.run_start_reads()
         tester.run_end_reads()
