@@ -251,16 +251,15 @@ class ServerTester(object):
             v1 = getattr(r1, field.name)
             v2 = getattr(r2, field.name)
 
-            if type(v1) is list and type(v2) is list and not v1 == v2:
-                v1 = set(v1)
-                v2 = set(v2)
-                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(r1.reference_name, r1.pos, field.name, v1, v2))
-                logging.info("v1-v2 : {}".str(v1-v2))
-                logging.info("v2-v1 : {}".str(v2-v1))          
-                self.mismatch_counts[field.name] += 1
-            elif not field.equals(v1, v2):
+            if not field.equals(v1, v2):
                 logging.info("Mismatch at {}:{}.{}:: {} != {}".format(r1.reference_name, r1.pos, field.name, v1, v2))
                 self.mismatch_counts[field.name] += 1
+
+                if type(v1) is list and type(v2) is list:
+                    v1 = set(v1)
+                    v2 = set(v2)
+                    logging.info("Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
+                    logging.info("Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
 
 
     def verify_reads(self, iter1, iter2):
