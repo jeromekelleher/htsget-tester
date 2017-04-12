@@ -245,14 +245,22 @@ class ServerTester(object):
             else:
                 logging.info("Skipping empty contig {}".format(reference_name))
 
+
     def verify_reads_equal(self, r1, r2):
         for field in self.fields:
             v1 = getattr(r1, field.name)
             v2 = getattr(r2, field.name)
+
             if not field.equals(v1, v2):
-                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(
-                    r1.reference_name, r1.pos, field.name, v1, v2))
+                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(r1.reference_name, r1.pos, field.name, v1, v2))
                 self.mismatch_counts[field.name] += 1
+
+                if type(v1) is list and type(v2) is list:
+                    v1 = set(v1)
+                    v2 = set(v2)
+                    logging.info("Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
+                    logging.info("Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
+
 
     def verify_reads(self, iter1, iter2):
         """
