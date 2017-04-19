@@ -72,6 +72,22 @@ def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
             subprocess.check_call(cmd, stdout=outfile)
 
 
+def sanger_cli(url, filename, reference_name=None, start=None, end=None):
+                                   
+    if reference_name is not None:                                       
+        url +=  "?referenceName=" + str(reference_name)                         
+        if start is not None:                                                
+            url +=  "&start=" + str(start)                                   
+            if end is not None:                                                  
+                url +=  "&end=" + str(end)                                     
+
+    cmd = ["node", "client.js", url, filename]                                                                                       
+
+    logging.info("sanger client: run {}".format(" ".join(cmd)))             
+    subprocess.check_call(cmd)                                           
+
+
+
 class TestFailedException(Exception):
     """
     Exception raised when we know we've failed.
@@ -454,7 +470,8 @@ if __name__ == "__main__":
     client_map = {
         "htsget-api": htsget_api,
         "htsget-cli": htsget_cli,
-        "dnanexus-cli": dnanexus_cli
+        "dnanexus-cli": dnanexus_cli,
+        "sanger-cli": sanger_cli
     }
 
     parser = argparse.ArgumentParser(
