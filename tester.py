@@ -25,6 +25,33 @@ from six.moves import zip
 __version__ = "0.1.0"
 
 
+def retry_command(cmd, filename=None, max_retries=5, retry_wait=5):
+    """
+    Runs the specified command and writes the stdout to the specified file (if
+    supplied). If an exception occurs, retry a maximumum of max_retries times,
+    waiting retry_wait seconds after every failure. If the maximum number of
+    retries has been exceeded, raise the original exception.
+    """
+    done = False
+    num_retries = 0
+    while not done:
+        try:
+            outfile = None
+            if filename is not None:
+                outfile = open(filename, "w")
+            subprocess.check_call(cmd, stdout=outfile)
+            done = True
+        except subprocess.CalledProcessError as cse:
+            if num_retries == max_retries:
+                raise cse
+            logging.warn("Command failed, retrying: '{}'".format(" ".join(cmd)))
+            time.sleep(retry_wait)
+            num_retries += 1
+        finally:
+            if outfile is not None:
+                outfile.close()
+
+
 def htsget_api(url, filename, reference_name=None, start=None, end=None):
     logging.info("htsget-api: request ('{}', {}, {})".format(reference_name, start, end))
     with open(filename, "wb") as tmp:
@@ -32,6 +59,10 @@ def htsget_api(url, filename, reference_name=None, start=None, end=None):
 
 
 def htsget_cli(url, filename, reference_name=None, start=None, end=None):
+    """
+    Runs the htsget CLI program. Assumes that htsget has been installed and the
+    CLI program is in PATH.
+    """
     cmd = ["htsget", url, "-O", filename]
     if reference_name is not None:
         cmd.extend(["-r", str(reference_name)])
@@ -40,51 +71,49 @@ def htsget_cli(url, filename, reference_name=None, start=None, end=None):
     if end is not None:
         cmd.extend(["-e", str(end)])
     logging.info("htsget-cli: run {}".format(" ".join(cmd)))
+    # We don't need to retry here because htsget automatically retries on errors.
     subprocess.check_call(cmd)
 
 
 def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
+    """
+    Runs the htsnexus CLI program. Assumes that the script has been downloaded
+    into the current working directory, and is executable.
 
-        url_segments = url.split('/')
-
-        namespace = url_segments[-2]
-        accession = url_segments[-1]
-
-        logging.info("accession={}".format(accession))
-
-        server = "/".join(url_segments[:-2])
-
-        cmd = ["htsnexus.py", "-s", server]
-
-        cmd.extend([str(namespace)])
-        cmd.extend([str(accession)])
-        
-        
-        if reference_name is not None:
-            ref = str(reference_name)
-            if start is not None and end is not None:
-                ref += ":"+str(start)+"-"+str(end)
-            cmd.extend(["-r", ref])
-
-        logging.info("htsnexus: run {}".format(" ".join(cmd)))
-
-        with open(filename, "w") as outfile:
-            subprocess.check_call(cmd, stdout=outfile)
+    See https://github.com/dnanexus-rnd/htsnexus for details on how to download
+    the script and use it.
+    """
+    url_segments = url.split('/')
+    namespace = url_segments[-2]
+    accession = url_segments[-1]
+    server = "/".join(url_segments[:-2])
+    cmd = ["./htsnexus.py", "-s", server]
+    cmd.extend([str(namespace)])
+    cmd.extend([str(accession)])
+    if reference_name is not None:
+        ref = str(reference_name)
+        if start is not None and end is not None:
+            ref += ":"+str(start)+"-"+str(end)
+        cmd.extend(["-r", ref])
+    logging.info("htsnexus: run {}".format(" ".join(cmd)))
+    retry_command(cmd, filename)
 
 
 def sanger_cli(url, filename, reference_name=None, start=None, end=None):
-                                   
-    if reference_name is not None:                                       
-        url +=  "?referenceName=" + str(reference_name)                         
-        if start is not None:                                                
-            url +=  "&start=" + str(start)                                   
-            if end is not None:                                                  
-                url +=  "&end=" + str(end)                                     
+    """
+    Runs the Sanger Javascript client.
 
-    cmd = ["node", "client.js", url, filename]                                                                                       
-
-    logging.info("sanger client: run {}".format(" ".join(cmd)))             
-    subprocess.check_call(cmd)                                           
+    Available at https://github.com/wtsi-npg/npg_ranger/blob/devel/bin/client.js
+    """
+    if reference_name is not None:
+        url +=  "?referenceName=" + str(reference_name)
+        if start is not None:
+            url +=  "&start=" + str(start)
+            if end is not None:
+                url +=  "&end=" + str(end)
+    cmd = ["node", "client.js", url, filename]
+    logging.info("sanger client: run {}".format(" ".join(cmd)))
+    retry_command(cmd)
 
 
 
