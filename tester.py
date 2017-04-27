@@ -24,6 +24,9 @@ from six.moves import zip
 
 __version__ = "0.1.0"
 
+FORMAT_BAM = "BAM"
+FORMAT_CRAM = "CRAM"
+
 
 def retry_command(cmd, filename=None, max_retries=5, retry_wait=5):
     """
@@ -52,13 +55,17 @@ def retry_command(cmd, filename=None, max_retries=5, retry_wait=5):
                 outfile.close()
 
 
-def htsget_api(url, filename, reference_name=None, start=None, end=None):
+def htsget_api(
+        url, filename, reference_name=None, start=None, end=None, data_format=None):
     logging.info("htsget-api: request ('{}', {}, {})".format(reference_name, start, end))
     with open(filename, "wb") as tmp:
-        htsget.get(url, tmp, reference_name=reference_name, start=start, end=end)
+        htsget.get(
+            url, tmp, reference_name=reference_name, start=start, end=end,
+            data_format=data_format)
 
 
-def htsget_cli(url, filename, reference_name=None, start=None, end=None):
+def htsget_cli(
+        url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
     Runs the htsget CLI program. Assumes that htsget has been installed and the
     CLI program is in PATH.
@@ -70,12 +77,15 @@ def htsget_cli(url, filename, reference_name=None, start=None, end=None):
         cmd.extend(["-s", str(start)])
     if end is not None:
         cmd.extend(["-e", str(end)])
+    if data_format is not None:
+        cmd.extend(["-f", str(data_format)])
     logging.info("htsget-cli: run {}".format(" ".join(cmd)))
     # We don't need to retry here because htsget automatically retries on errors.
     subprocess.check_call(cmd)
 
 
-def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
+def dnanexus_cli(
+        url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
     Runs the htsnexus CLI program. Assumes that the script has been downloaded
     into the current working directory, and is executable.
@@ -88,8 +98,9 @@ def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
     accession = url_segments[-1]
     server = "/".join(url_segments[:-2])
     cmd = ["./htsnexus.py", "-s", server]
-    cmd.extend([str(namespace)])
-    cmd.extend([str(accession)])
+    cmd.extend([namespace, accession])
+    if data_format is not None:
+        cmd.append(data_format)
     if reference_name is not None:
         ref = str(reference_name)
         if start is not None and end is not None:
@@ -99,22 +110,24 @@ def dnanexus_cli(url, filename, reference_name=None, start=None, end=None):
     retry_command(cmd, filename)
 
 
-def sanger_cli(url, filename, reference_name=None, start=None, end=None):
+def sanger_cli(
+        url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
     Runs the Sanger Javascript client.
 
     Available at https://github.com/wtsi-npg/npg_ranger/blob/devel/bin/client.js
     """
+    if data_format is not None:
+        raise ValueError("FIXME: data formats for Sanger client")
     if reference_name is not None:
-        url +=  "?referenceName=" + str(reference_name)
+        url += "?referenceName=" + str(reference_name)
         if start is not None:
-            url +=  "&start=" + str(start)
+            url += "&start=" + str(start)
             if end is not None:
-                url +=  "&end=" + str(end)
+                url += "&end=" + str(end)
     cmd = ["node", "client.js", url, filename]
     logging.info("sanger client: run {}".format(" ".join(cmd)))
     retry_command(cmd)
-
 
 
 class TestFailedException(Exception):
@@ -223,6 +236,14 @@ class ServerTester(object):
         self.tmpdir = tmpdir
         self.max_random_query_length = max_random_query_length
         self.alignment_file = pysam.AlignmentFile(self.source_file_name)
+        extension = os.path.splitext(self.source_file_name)[1]
+        if extension == ".cram":
+            self.data_format = FORMAT_CRAM
+        elif extension == ".bam":
+            self.data_format = FORMAT_BAM
+        else:
+            raise ValueError("Unknown file format: {}. Please use .bam or .cram".format(
+                extension))
         self.temp_file_name = None
         self.num_boundary_reads = num_boundary_reads
         self.max_references = max_references
@@ -264,11 +285,11 @@ class ServerTester(object):
 
     def initialise(self):
         """
-        Scans the input BAM file and initialises the data structures we need for the
+        Scans the input file and initialises the data structures we need for the
         tests.
         """
         fd, self.temp_file_name = tempfile.mkstemp(
-            prefix="gastream_test_", dir=self.tmpdir, suffix=".bam")
+            prefix="gastream_test_", dir=self.tmpdir, suffix="." + self.data_format)
         os.close(fd)
         # Determine the bounds of the individual contigs.
         total_references = len(self.alignment_file.lengths)
@@ -290,22 +311,21 @@ class ServerTester(object):
             else:
                 logging.info("Skipping empty contig {}".format(reference_name))
 
-
     def verify_reads_equal(self, r1, r2):
         for field in self.fields:
             v1 = getattr(r1, field.name)
             v2 = getattr(r2, field.name)
-
             if not field.equals(v1, v2):
-                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(r1.reference_name, r1.pos, field.name, v1, v2))
+                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(
+                    r1.reference_name, r1.pos, field.name, v1, v2))
                 self.mismatch_counts[field.name] += 1
-
                 if type(v1) is list and type(v2) is list:
                     v1 = set(v1)
                     v2 = set(v2)
-                    logging.info("Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
-                    logging.info("Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
-
+                    logging.info(
+                        "Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
+                    logging.info(
+                        "Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
 
     def verify_reads(self, iter1, iter2):
         """
@@ -369,7 +389,7 @@ class ServerTester(object):
         before = time.time()
         self.client(
             self.server_url, self.temp_file_name, reference_name=reference_name,
-            start=start, end=end)
+            start=start, end=end, data_format=self.data_format)
         duration = time.time() - before
         size = os.path.getsize(self.temp_file_name)
         self.total_downloaded_data += size
@@ -380,7 +400,8 @@ class ServerTester(object):
         before = time.clock()
         pysam.index(self.temp_file_name)
         duration = time.clock() - before
-        logging.debug("Indexed BAM file in {:.3f} CPU seconds".format(duration))
+        logging.debug("Indexed {} file in {:.3f} CPU seconds".format(
+            self.data_format, duration))
 
         # Analyse the reads
         before = time.clock()
@@ -393,15 +414,19 @@ class ServerTester(object):
         if self.filter_unmapped:
             iter1 = filter_unmapped(iter1)
         num_reads = self.verify_reads(iter1, iter2)
-        # Now count the reads outside the original region.
-        subset_reads.reset()
-        all_reads = 0
-        for read in subset_reads:
-            all_reads += 1
-        extra = all_reads - num_reads
         duration = time.clock() - before
         logging.debug("Checked reads in {:.3f} CPU seconds".format(duration))
-        logging.info("Downloaded {} reads with {} extra".format(num_reads, extra))
+        if self.data_format == FORMAT_BAM:
+            # Count the reads outside the original region. This only works for
+            # BAM files, so we don't bother for CRAM.
+            subset_reads.reset()
+            all_reads = 0
+            for read in subset_reads:
+                all_reads += 1
+            extra = all_reads - num_reads
+            logging.info("Downloaded {} reads with {} extra".format(num_reads, extra))
+        else:
+            logging.info("Downloaded {} reads".format(num_reads))
 
     def run_random_reads(self, num_tests):
         """
@@ -510,9 +535,9 @@ if __name__ == "__main__":
         version='%(prog)s {}'.format(__version__))
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument(
-        "bam_file", type=str, help="The local BAM file to compare to")
+        "source_file", type=str, help="The local BAM/CRAM file to compare to")
     parser.add_argument(
-        "url", type=str, help="The server url corresponding to the input BAM file.")
+        "url", type=str, help="The server url corresponding to the input source file.")
     parser.add_argument(
         "--filter-unmapped", action='store_true',
         help="Filter out unmapped reads before comparing reads.")
@@ -547,7 +572,7 @@ if __name__ == "__main__":
         log_level = logging.DEBUG
     logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
     tester = ServerTester(
-        args.bam_file, args.url, filter_unmapped=args.filter_unmapped,
+        args.source_file, args.url, filter_unmapped=args.filter_unmapped,
         tmpdir=args.tmpdir, max_references=args.max_references,
         client=client_map[args.client])
     exit_status = 1
