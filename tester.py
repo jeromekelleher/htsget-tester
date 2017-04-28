@@ -103,8 +103,13 @@ def dnanexus_cli(
         cmd.append(data_format)
     if reference_name is not None:
         ref = str(reference_name)
-        if start is not None and end is not None:
-            ref += ":"+str(start)+"-"+str(end)
+        # htsnexus doesn't support specifying start and end on their own,
+        # so we have to work around this with boundary values.
+        s = 0 if start is None else start
+        # This should be a safe upper bound.
+        e = 2**32 - 1 if end is None else end
+        if start is not None or end is not None:
+            ref += ":{}-{}".format(s, e)
         cmd.extend(["-r", ref])
     logging.info("htsnexus: run {}".format(" ".join(cmd)))
     retry_command(cmd, filename)
