@@ -14,6 +14,7 @@ set -x
 python tester.py -vv ENCFF000VWO.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF000VWO "$@"
 python tester.py -vv ENCFF284YOU.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF284YOU_GRCH38 "$@"
 
+
 if [[ "$@" == *fulltest ]]
 then
     set +x
@@ -22,14 +23,14 @@ then
     echo ------------------------------------------
     set -x
 
-	python tester.py -vv NA12878.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878 "$@"
-	python tester.py -vv NA12878.cram http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878_GRCH38 "$@"
+	python tester.py -vv NA12878.bam http://ga4gh.ebi.ac.uk/ticket/NA12878.bam  "$@"
+	python tester.py -vv NA12878.cram http://ga4gh.ebi.ac.uk/ticket/NA12878.cram "$@"
 
-	python tester.py -vv NA12891.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12891 "$@"
-	python tester.py -vv NA12891.cram http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12891_GRCH38 "$@"
+	python tester.py -vv NA12891.bam http://ga4gh.ebi.ac.uk/ticket/NA12891.bam "$@"
+	python tester.py -vv NA12891.cram http://ga4gh.ebi.ac.uk/ticket/NA12891.cram "$@"
 
-	python tester.py -vv NA12892.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12892 "$@"
-	python tester.py -vv NA12892.cram http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12892_GRCH38 "$@"
+	python tester.py -vv NA12892.bam http://ga4gh.ebi.ac.uk/ticket/NA12892.bam "$@"
+	python tester.py -vv NA12892.cram http://ga4gh.ebi.ac.uk/ticket/NA12892.cram "$@"
 fi
 
 set -e
