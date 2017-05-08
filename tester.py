@@ -577,6 +577,7 @@ if __name__ == "__main__":
     if args.verbose >= 2:
         log_level = logging.DEBUG
     logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
+    random.seed(args.random_seed)
     tester = ServerTester(
         args.source_file, args.url, filter_unmapped=args.filter_unmapped,
         tmpdir=args.tmpdir, max_references=args.max_references,
@@ -584,7 +585,6 @@ if __name__ == "__main__":
     exit_status = 1
     try:
         tester.initialise()
-        # comment
         tester.run_full_contig_fetch()
         tester.run_start_reads()
         tester.run_end_reads()
