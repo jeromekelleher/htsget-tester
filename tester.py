@@ -56,12 +56,14 @@ def retry_command(cmd, filename=None, max_retries=5, retry_wait=5):
 
 
 def htsget_api(
-        url, filename, reference_name=None, start=None, end=None, data_format=None):
-    logging.info("htsget-api: request ('{}', {}, {})".format(reference_name, start, end))
+        url, filename, reference_name=None, reference_md5=None, start=None, end=None,
+        data_format=None):
+    logging.info("htsget-api: request (name='{}', md5='{}', start={}, end={})".format(
+        reference_name, reference_md5, start, end))
     with open(filename, "wb") as tmp:
         htsget.get(
-            url, tmp, reference_name=reference_name, start=start, end=end,
-            data_format=data_format)
+            url, tmp, reference_name=reference_name, reference_md5=reference_md5,
+            start=start, end=end, data_format=data_format)
 
 
 def htsget_cli(
@@ -179,8 +181,9 @@ class Contig(object):
     Represents a single contig within the BAM file.
     """
     def __init__(
-            self, reference_name, length, start_positions, end_positions):
+            self, reference_name, reference_md5, length, start_positions, end_positions):
         self.reference_name = reference_name
+        self.reference_md5 = reference_md5
         self.length = length
         self.start_positions = start_positions
         self.end_positions = end_positions
@@ -302,11 +305,17 @@ class ServerTester(object):
         logging.info("Reading file {}".format(self.source_file_name))
         for j in range(num_references):
             reference_name = self.alignment_file.references[j]
+            sq = self.alignment_file.header['SQ'][j]
+            reference_md5 = sq['M5']
             length = self.alignment_file.lengths[j]
+            assert sq['LN'] == length
+            assert sq['SN'] == reference_name
             start_positions = self.get_start_positions(reference_name)
             if len(start_positions) > 0:
                 end_positions = self.get_end_positions(reference_name, length)
-                contig = Contig(reference_name, length, start_positions, end_positions)
+                contig = Contig(
+                    reference_name, reference_md5, length, start_positions,
+                    end_positions)
                 self.contigs.append(contig)
                 msg = (
                     "Read contig {}: got {} start positions and {} end "
@@ -385,7 +394,8 @@ class ServerTester(object):
         assert total_checks == num_reads
         return num_reads
 
-    def verify_query(self, reference_name, start=None, end=None):
+    def verify_query(
+            self, reference_name=None, reference_md5=None, start=None, end=None):
         """
         Runs the specified query and verifies the result.
         """
@@ -394,7 +404,8 @@ class ServerTester(object):
         before = time.time()
         self.client(
             self.server_url, self.temp_file_name, reference_name=reference_name,
-            start=start, end=end, data_format=self.data_format)
+            reference_md5=reference_md5, start=start, end=end,
+            data_format=self.data_format)
         duration = time.time() - before
         size = os.path.getsize(self.temp_file_name)
         self.total_downloaded_data += size
@@ -444,7 +455,7 @@ class ServerTester(object):
             start = random.randint(0, contig.length)
             end = random.randint(
                 start, min(start + self.max_random_query_length, contig.length))
-            self.verify_query(contig.reference_name, start, end)
+            self.verify_query(contig.reference_name, start=start, end=end)
 
     def run_full_contig_fetch(self):
         """
@@ -464,22 +475,17 @@ class ServerTester(object):
         """
         logging.info("Starting contig start queries")
         for contig in self.contigs:
-            self.verify_query(
-                contig.reference_name,
-                contig.start_positions[0],
-                contig.start_positions[-1] + 1)
-            self.verify_query(
-                contig.reference_name,
-                None,
-                contig.start_positions[-1] + 1)
-            self.verify_query(
-                contig.reference_name,
-                max(0, contig.start_positions[0] - 100),
-                contig.start_positions[0] + 1)
-            self.verify_query(
-                contig.reference_name,
-                contig.start_positions[-1],
-                contig.start_positions[-1] + 1)
+            values = [
+                (contig.start_positions[0], contig.start_positions[-1] + 1),
+                (None, contig.start_positions[-1] + 1),
+                (max(0, contig.start_positions[0] - 100), contig.start_positions[0] + 1),
+                (contig.start_positions[-1], contig.start_positions[-1] + 1)
+            ]
+            for start, end in values:
+                self.verify_query(
+                    reference_name=contig.reference_name, start=start, end=end)
+                # self.verify_query(
+                #     reference_md5=contig.reference_md5, start=start, end=end)
 
     def run_end_reads(self):
         """
@@ -488,18 +494,14 @@ class ServerTester(object):
         logging.info("Starting contig end queries")
         for contig in self.contigs:
             if len(contig.end_positions) > 0:
-                self.verify_query(
-                    contig.reference_name,
-                    contig.end_positions[0],
-                    contig.end_positions[-1] + 1)
-                self.verify_query(
-                    contig.reference_name,
-                    contig.end_positions[0],
-                    None)
-                self.verify_query(
-                    contig.reference_name,
-                    max(0, contig.end_positions[0] - 100),
-                    contig.end_positions[0] + 1)
+                values = [
+                    (contig.end_positions[0], contig.end_positions[-1] + 1),
+                    (contig.end_positions[0], None),
+                    (max(0, contig.end_positions[0] - 100), contig.end_positions[0] + 1),
+                ]
+                for start, end in values:
+                    self.verify_query(
+                        reference_name=contig.reference_name, start=start, end=end)
             else:
                 logging.info("Skipping end reads for {}".format(contig.reference_name))
 
