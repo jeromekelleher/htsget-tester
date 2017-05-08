@@ -67,7 +67,8 @@ def htsget_api(
 
 
 def htsget_cli(
-        url, filename, reference_name=None, start=None, end=None, data_format=None):
+        url, filename, reference_name=None, reference_md5=None, start=None, end=None,
+        data_format=None):
     """
     Runs the htsget CLI program. Assumes that htsget has been installed and the
     CLI program is in PATH.
@@ -394,8 +395,7 @@ class ServerTester(object):
         assert total_checks == num_reads
         return num_reads
 
-    def verify_query(
-            self, reference_name=None, reference_md5=None, start=None, end=None):
+    def verify_query(self, reference_name=None, start=None, end=None):
         """
         Runs the specified query and verifies the result.
         """
@@ -404,8 +404,7 @@ class ServerTester(object):
         before = time.time()
         self.client(
             self.server_url, self.temp_file_name, reference_name=reference_name,
-            reference_md5=reference_md5, start=start, end=end,
-            data_format=self.data_format)
+            start=start, end=end, data_format=self.data_format)
         duration = time.time() - before
         size = os.path.getsize(self.temp_file_name)
         self.total_downloaded_data += size
