@@ -22,7 +22,7 @@ import humanize
 from six.moves import zip
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 FORMAT_BAM = "BAM"
 FORMAT_CRAM = "CRAM"
@@ -533,12 +533,14 @@ if __name__ == "__main__":
         "dnanexus-cli": dnanexus_cli,
         "sanger-cli": sanger_cli
     }
+    version_report = "%(prog)s {} (htsget {}; Python {})".format(
+            __version__, htsget.__version__, ".".join(map(str, sys.version_info[:3])))
 
     parser = argparse.ArgumentParser(
         description="A simple tester application for the GA4GH streaming API.")
     parser.add_argument(
         "-V", "--version", action='version',
-        version='%(prog)s {}'.format(__version__))
+        version=version_report)
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument(
         "source_file", type=str, help="The local BAM/CRAM file to compare to")
