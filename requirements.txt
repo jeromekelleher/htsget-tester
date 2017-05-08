@@ -1,4 +1,4 @@
 humanize
-htsget
+htsget>=0.1.2
 pysam
 six
