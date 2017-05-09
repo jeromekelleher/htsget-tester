@@ -122,13 +122,10 @@ def dnanexus_cli(
 def sanger_cli(
         url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
-    Runs the Sanger Javascript client. For this to work, make sure the npg_ranger
-    directory is in the same directory as the current script, i.e.
+    Runs the Sanger Javascript client. Make sure you run these commands in the
+    same directory as the current script, i.e.
 
-    $ git clone https://github.com/wtsi-npg/npg_ranger
-    $ cd npg_ranger
-    $ npm install
-    $ cd ..
+    $ npm install npg_ranger
     $ python tester.py --client=sanger-cli <other args>
     """
     args = {}
@@ -142,7 +139,7 @@ def sanger_cli(
         args["format"] = data_format
     if len(args) > 0:
         url += "?{}".format(urlencode(args))
-    cmd = ["node", "npg_ranger/bin/client.js", url, filename]
+    cmd = ["node_modules/.bin/npg_ranger_client", url, filename]
     logging.info("sanger client: run {}".format(" ".join(cmd)))
     retry_command(cmd)
 
