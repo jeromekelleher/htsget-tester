@@ -122,17 +122,50 @@ def sanger_cli(
 
     Available at https://github.com/wtsi-npg/npg_ranger/blob/devel/bin/client.js
     """
-    if data_format is not None:
-        raise ValueError("FIXME: data formats for Sanger client")
+    
     if reference_name is not None:
         url += "?referenceName=" + str(reference_name)
         if start is not None:
             url += "&start=" + str(start)
             if end is not None:
                 url += "&end=" + str(end)
+        if data_format is not None:
+            url += "&format=" + str(data_format)
+            
     cmd = ["node", "client.js", url, filename]
     logging.info("sanger client: run {}".format(" ".join(cmd)))
     retry_command(cmd)
+    
+
+def ena_cli( url, filename, reference_name=None, start=None, end=None, data_format=None ):
+        """
+        Runs the ENA client ( https://github.com/enasequence/ena-ga4gh-read-client )
+        """
+        url_segments = url.split('/')        
+        dataset_id = url_segments[-1]
+        endpoint_url = "/".join(url_segments[:-1]) + "/"
+        
+        cmd = ["ga4gh-dapi-client"]
+        
+        cmd.extend(["--endpoint-url", endpoint_url])        
+        cmd.extend(["--dataset-id", dataset_id])
+        cmd.extend(["--output-file", filename])
+        
+        if data_format is not None:
+            cmd.extend(["--format", data_format])    
+            
+        if reference_name is not None:
+            cmd.extend(["--reference-name", reference_name]) 
+            if start is not None:
+                cmd.extend(["--alignment-start", str(start)])
+                if end is not None:
+                    cmd.extend(["--alignment-stop", str(end)])
+                                                      
+          #  cmd.extend(["--alignment-start", str(1 if start is None else start)])
+          #  cmd.extend(["--alignment-stop", str(2**31 - 1 if end is None else end)])            
+
+        logging.info("ENA run: {}".format(" ".join(cmd)))
+        retry_command(cmd)
 
 
 class TestFailedException(Exception):
@@ -530,7 +563,8 @@ if __name__ == "__main__":
         "htsget-api": htsget_api,
         "htsget-cli": htsget_cli,
         "dnanexus-cli": dnanexus_cli,
-        "sanger-cli": sanger_cli
+        "sanger-cli": sanger_cli,
+        "ena-cli": ena_cli
     }
 
     parser = argparse.ArgumentParser(
