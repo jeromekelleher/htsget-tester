@@ -5,21 +5,14 @@ trap "" HUP
 set +e 
 
 
-set +x
-echo ------------------------------------------------------------
-echo Testing 2 small files ENCFF000VWO.bam and ENCFF284YOU.bam...
-echo ------------------------------------------------------------
-set -x
-
-python tester.py -vv ENCFF000VWO.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF000VWO "$@"
-python tester.py -vv ENCFF284YOU.bam http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF284YOU_GRCH38 "$@"
-
-
 if [[ "$@" == *fulltest ]]
 then
+    # remove last arg ( 'fulltest' )
+    set -- "${@:1:$(($#-1))}"
+
     set +x
 	echo ------------------------------------------
-    echo NOW TESTING BIG FILES...might take hours..
+    echo TESTING BIG FILES.....might take hours....
     echo ------------------------------------------
     set -x
 
@@ -32,5 +25,14 @@ then
 	python tester.py -vv NA12892.bam http://ga4gh.ebi.ac.uk/ticket/NA12892.bam "$@"
 	python tester.py -vv NA12892.cram http://ga4gh.ebi.ac.uk/ticket/NA12892.cram "$@"
 fi
+
+set +x
+echo ------------------------------------------------------------
+echo Testing 2 small files ENCFF000VWO.bam and ENCFF284YOU.bam...
+echo ------------------------------------------------------------
+set -x
+
+python tester.py -vv ENCFF000VWO.bam http://ga4gh.ebi.ac.uk/ticket/ENCFF000VWO "$@"
+python tester.py -vv ENCFF284YOU.bam http://ga4gh.ebi.ac.uk/ticket/ENCFF284YOU "$@"
 
 set -e
