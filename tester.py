@@ -20,6 +20,7 @@ import pysam
 import humanize
 
 from six.moves import zip
+from six.moves.urllib.parse import urlencode
 
 
 __version__ = "0.1.1"
@@ -121,17 +122,27 @@ def dnanexus_cli(
 def sanger_cli(
         url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
-    Runs the Sanger Javascript client.
+    Runs the Sanger Javascript client. For this to work, make sure the npg_ranger
+    directory is in the same directory as the current script, i.e.
 
-    Available at https://github.com/wtsi-npg/npg_ranger/blob/devel/bin/client.js
+    $ git clone https://github.com/wtsi-npg/npg_ranger
+    $ cd npg_ranger
+    $ npm install
+    $ cd ..
+    $ python tester.py --client=sanger-cli <other args>
     """
+    args = {}
     if reference_name is not None:
-        url += "?referenceName=" + str(reference_name)
-        if start is not None:
-            url += "&start=" + str(start)
-            if end is not None:
-                url += "&end=" + str(end)
-    cmd = ["node", "client.js", url, filename]
+        args["referenceName"] = reference_name
+    if start is not None:
+        args["start"] = str(start)
+    if end is not None:
+        args["end"] = str(end)
+    if data_format is not None:
+        args["format"] = data_format
+    if len(args) > 0:
+        url += "?{}".format(urlencode(args))
+    cmd = ["node", "npm_ranger/bin/client.js", url, filename]
     logging.info("sanger client: run {}".format(" ".join(cmd)))
     retry_command(cmd)
 
