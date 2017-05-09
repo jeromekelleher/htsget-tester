@@ -142,7 +142,7 @@ def sanger_cli(
         args["format"] = data_format
     if len(args) > 0:
         url += "?{}".format(urlencode(args))
-    cmd = ["node", "npm_ranger/bin/client.js", url, filename]
+    cmd = ["node", "npg_ranger/bin/client.js", url, filename]
     logging.info("sanger client: run {}".format(" ".join(cmd)))
     retry_command(cmd)
 
