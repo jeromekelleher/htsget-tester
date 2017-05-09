@@ -125,8 +125,6 @@ def sanger_cli(
 
     Available at https://github.com/wtsi-npg/npg_ranger/blob/devel/bin/client.js
     """
-    if data_format is not None:
-        raise ValueError("FIXME: data formats for Sanger client")
     if reference_name is not None:
         url += "?referenceName=" + str(reference_name)
         if start is not None:
@@ -307,7 +305,7 @@ class ServerTester(object):
         for j in range(num_references):
             reference_name = self.alignment_file.references[j]
             sq = self.alignment_file.header['SQ'][j]
-            reference_md5 = sq['M5']
+            reference_md5 = sq.get('M5', None)
             length = self.alignment_file.lengths[j]
             assert sq['LN'] == length
             assert sq['SN'] == reference_name
