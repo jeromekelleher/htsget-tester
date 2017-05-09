@@ -20,9 +20,10 @@ import pysam
 import humanize
 
 from six.moves import zip
+from six.moves.urllib.parse import urlencode
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 FORMAT_BAM = "BAM"
 FORMAT_CRAM = "CRAM"
@@ -56,16 +57,19 @@ def retry_command(cmd, filename=None, max_retries=5, retry_wait=5):
 
 
 def htsget_api(
-        url, filename, reference_name=None, start=None, end=None, data_format=None):
-    logging.info("htsget-api: request ('{}', {}, {})".format(reference_name, start, end))
+        url, filename, reference_name=None, reference_md5=None, start=None, end=None,
+        data_format=None):
+    logging.info("htsget-api: request (name='{}', md5='{}', start={}, end={})".format(
+        reference_name, reference_md5, start, end))
     with open(filename, "wb") as tmp:
         htsget.get(
-            url, tmp, reference_name=reference_name, start=start, end=end,
-            data_format=data_format)
+            url, tmp, reference_name=reference_name, reference_md5=reference_md5,
+            start=start, end=end, data_format=data_format)
 
 
 def htsget_cli(
-        url, filename, reference_name=None, start=None, end=None, data_format=None):
+        url, filename, reference_name=None, reference_md5=None, start=None, end=None,
+        data_format=None):
     """
     Runs the htsget CLI program. Assumes that htsget has been installed and the
     CLI program is in PATH.
@@ -118,21 +122,29 @@ def dnanexus_cli(
 def sanger_cli(
         url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
-    Runs the Sanger Javascript client.
+    Runs the Sanger Javascript client. For this to work, make sure the npg_ranger
+    directory is in the same directory as the current script, i.e.
 
-    Available at https://github.com/wtsi-npg/npg_ranger/blob/devel/bin/client.js
+    $ git clone https://github.com/wtsi-npg/npg_ranger
+    $ cd npg_ranger
+    $ npm install
+    $ cd ..
+    $ python tester.py --client=sanger-cli <other args>
     """
-    
+
+    args = {}
     if reference_name is not None:
-        url += "?referenceName=" + str(reference_name)
-        if start is not None:
-            url += "&start=" + str(start)
-            if end is not None:
-                url += "&end=" + str(end)
-        if data_format is not None:
-            url += "&format=" + str(data_format)
-            
-    cmd = ["node", "client.js", url, filename]
+        args["referenceName"] = reference_name
+    if start is not None:
+        args["start"] = str(start)
+    if end is not None:
+        args["end"] = str(end)
+    if data_format is not None:
+        args["format"] = data_format
+    if len(args) > 0:
+        url += "?{}".format(urlencode(args))
+    cmd = ["node", "npg_ranger/bin/client.js", url, filename]
+
     logging.info("sanger client: run {}".format(" ".join(cmd)))
     retry_command(cmd)
     
@@ -212,8 +224,9 @@ class Contig(object):
     Represents a single contig within the BAM file.
     """
     def __init__(
-            self, reference_name, length, start_positions, end_positions):
+            self, reference_name, reference_md5, length, start_positions, end_positions):
         self.reference_name = reference_name
+        self.reference_md5 = reference_md5
         self.length = length
         self.start_positions = start_positions
         self.end_positions = end_positions
@@ -335,11 +348,17 @@ class ServerTester(object):
         logging.info("Reading file {}".format(self.source_file_name))
         for j in range(num_references):
             reference_name = self.alignment_file.references[j]
+            sq = self.alignment_file.header['SQ'][j]
+            reference_md5 = sq.get('M5', None)
             length = self.alignment_file.lengths[j]
+            assert sq['LN'] == length
+            assert sq['SN'] == reference_name
             start_positions = self.get_start_positions(reference_name)
             if len(start_positions) > 0:
                 end_positions = self.get_end_positions(reference_name, length)
-                contig = Contig(reference_name, length, start_positions, end_positions)
+                contig = Contig(
+                    reference_name, reference_md5, length, start_positions,
+                    end_positions)
                 self.contigs.append(contig)
                 msg = (
                     "Read contig {}: got {} start positions and {} end "
@@ -418,7 +437,7 @@ class ServerTester(object):
         assert total_checks == num_reads
         return num_reads
 
-    def verify_query(self, reference_name, start=None, end=None):
+    def verify_query(self, reference_name=None, start=None, end=None):
         """
         Runs the specified query and verifies the result.
         """
@@ -477,7 +496,7 @@ class ServerTester(object):
             start = random.randint(0, contig.length)
             end = random.randint(
                 start, min(start + self.max_random_query_length, contig.length))
-            self.verify_query(contig.reference_name, start, end)
+            self.verify_query(contig.reference_name, start=start, end=end)
 
     def run_full_contig_fetch(self):
         """
@@ -497,22 +516,17 @@ class ServerTester(object):
         """
         logging.info("Starting contig start queries")
         for contig in self.contigs:
-            self.verify_query(
-                contig.reference_name,
-                contig.start_positions[0],
-                contig.start_positions[-1] + 1)
-            self.verify_query(
-                contig.reference_name,
-                None,
-                contig.start_positions[-1] + 1)
-            self.verify_query(
-                contig.reference_name,
-                max(0, contig.start_positions[0] - 100),
-                contig.start_positions[0] + 1)
-            self.verify_query(
-                contig.reference_name,
-                contig.start_positions[-1],
-                contig.start_positions[-1] + 1)
+            values = [
+                (contig.start_positions[0], contig.start_positions[-1] + 1),
+                (None, contig.start_positions[-1] + 1),
+                (max(0, contig.start_positions[0] - 100), contig.start_positions[0] + 1),
+                (contig.start_positions[-1], contig.start_positions[-1] + 1)
+            ]
+            for start, end in values:
+                self.verify_query(
+                    reference_name=contig.reference_name, start=start, end=end)
+                # self.verify_query(
+                #     reference_md5=contig.reference_md5, start=start, end=end)
 
     def run_end_reads(self):
         """
@@ -521,18 +535,14 @@ class ServerTester(object):
         logging.info("Starting contig end queries")
         for contig in self.contigs:
             if len(contig.end_positions) > 0:
-                self.verify_query(
-                    contig.reference_name,
-                    contig.end_positions[0],
-                    contig.end_positions[-1] + 1)
-                self.verify_query(
-                    contig.reference_name,
-                    contig.end_positions[0],
-                    None)
-                self.verify_query(
-                    contig.reference_name,
-                    max(0, contig.end_positions[0] - 100),
-                    contig.end_positions[0] + 1)
+                values = [
+                    (contig.end_positions[0], contig.end_positions[-1] + 1),
+                    (contig.end_positions[0], None),
+                    (max(0, contig.end_positions[0] - 100), contig.end_positions[0] + 1),
+                ]
+                for start, end in values:
+                    self.verify_query(
+                        reference_name=contig.reference_name, start=start, end=end)
             else:
                 logging.info("Skipping end reads for {}".format(contig.reference_name))
 
@@ -566,12 +576,14 @@ if __name__ == "__main__":
         "sanger-cli": sanger_cli,
         "ena-cli": ena_cli
     }
+    version_report = "%(prog)s {} (htsget {}; Python {})".format(
+            __version__, htsget.__version__, ".".join(map(str, sys.version_info[:3])))
 
     parser = argparse.ArgumentParser(
         description="A simple tester application for the GA4GH streaming API.")
     parser.add_argument(
         "-V", "--version", action='version',
-        version='%(prog)s {}'.format(__version__))
+        version=version_report)
     parser.add_argument('--verbose', '-v', action='count', default=0)
     parser.add_argument(
         "source_file", type=str, help="The local BAM/CRAM file to compare to")
@@ -610,6 +622,7 @@ if __name__ == "__main__":
     if args.verbose >= 2:
         log_level = logging.DEBUG
     logging.basicConfig(format='%(asctime)s %(message)s', level=log_level)
+    random.seed(args.random_seed)
     tester = ServerTester(
         args.source_file, args.url, filter_unmapped=args.filter_unmapped,
         tmpdir=args.tmpdir, max_references=args.max_references,
@@ -617,7 +630,6 @@ if __name__ == "__main__":
     exit_status = 1
     try:
         tester.initialise()
-        # comment
         tester.run_full_contig_fetch()
         tester.run_start_reads()
         tester.run_end_reads()
