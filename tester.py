@@ -110,8 +110,8 @@ def dnanexus_cli(
         # htsnexus doesn't support specifying start and end on their own,
         # so we have to work around this with boundary values.
         s = 0 if start is None else start
-        # This should be a safe upper bound.
-        e = 2**32 - 1 if end is None else end
+        # This should be a safe upper bound according to the SAM spec.
+        e = 2**31 - 1 if end is None else end
         if start is not None or end is not None:
             ref += ":{}-{}".format(s, e)
         cmd.extend(["-r", ref])
