@@ -292,6 +292,7 @@ class ServerTester(object):
         self.client = client
         self.contigs = []
         self.mismatch_counts = collections.Counter()
+        self.mismatch_report_threshold = 20  # Avoid flooding log.
         self.total_queries = 0
         self.total_downloaded_data = 0
         self.total_download_time = 1e-8  # Avoid zero division problems
@@ -364,16 +365,21 @@ class ServerTester(object):
             v1 = getattr(r1, field.name)
             v2 = getattr(r2, field.name)
             if not field.equals(v1, v2):
-                logging.info("Mismatch at {}:{}.{}:: {} != {}".format(
-                    r1.reference_name, r1.pos, field.name, v1, v2))
                 self.mismatch_counts[field.name] += 1
-                if type(v1) is list and type(v2) is list:
-                    v1 = set(v1)
-                    v2 = set(v2)
-                    logging.info(
-                        "Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
-                    logging.info(
-                        "Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
+                if self.mismatch_counts[field.name] < self.mismatch_report_threshold:
+                    logging.warning("Mismatch at {}:{}.{}:: {} != {}".format(
+                        r1.reference_name, r1.pos, field.name, v1, v2))
+                    if type(v1) is list and type(v2) is list:
+                        v1 = set(v1)
+                        v2 = set(v2)
+                        logging.warning(
+                            "Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
+                        logging.warning(
+                            "Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
+                elif self.mismatch_counts[field.name] == self.mismatch_report_threshold:
+                    logging.warning(
+                        "More than {} mismatches logged. Not reporting any more".format(
+                            self.mismatch_report_threshold))
 
     def verify_reads(self, iter1, iter2):
         """
