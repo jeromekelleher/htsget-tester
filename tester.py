@@ -171,6 +171,16 @@ def ena_cli(url, filename, reference_name=None, start=None, end=None, data_forma
     retry_command(cmd)
 
 
+# All clients must be registered in this map to be available for use.
+client_map = {
+    "htsget-api": htsget_api,
+    "htsget-cli": htsget_cli,
+    "dnanexus-cli": dnanexus_cli,
+    "sanger-cli": sanger_cli,
+    "ena-cli": ena_cli
+}
+
+
 class TestFailedException(Exception):
     """
     Exception raised when we know we've failed.
@@ -208,6 +218,20 @@ def filter_unmapped(iterator):
         else:
             yield read
     logging.info("Filtered {} reads".format(filtered))
+
+
+class TestReport(object):
+    """
+    A report on a single test run.
+    """
+    def __init__(
+            self, num_references=None, total_queries=None, total_downloaded_data=None,
+            total_download_time=None, mismatch_counts=None):
+        self.num_references = num_references
+        self.total_queries = total_queries
+        self.total_downloaded_data = total_downloaded_data
+        self.total_download_time = total_download_time
+        self.mismatch_counts = mismatch_counts
 
 
 class Contig(object):
@@ -373,9 +397,11 @@ class ServerTester(object):
                         v1 = set(v1)
                         v2 = set(v2)
                         logging.warning(
-                            "Extra elements in 1st set (v1-v2) : {}".format(sorted(v1-v2)))
+                            "Extra elements in 1st set (v1-v2) : {}".format(
+                                sorted(v1 - v2)))
                         logging.warning(
-                            "Extra elements in 2nd set (v2-v1) : {}".format(sorted(v2-v1)))
+                            "Extra elements in 2nd set (v2-v1) : {}".format(
+                                sorted(v2 - v1)))
                 elif self.mismatch_counts[field.name] == self.mismatch_report_threshold:
                     logging.warning(
                         "More than {} mismatches logged. Not reporting any more".format(
@@ -552,6 +578,14 @@ class ServerTester(object):
                 os.unlink(index_file)
 
     def report(self):
+        return TestReport(
+            num_references=len(self.contigs),
+            total_queries=self.total_queries,
+            total_downloaded_data=self.total_downloaded_data,
+            total_download_time=self.total_download_time,
+            mismatch_counts=self.mismatch_counts)
+
+    def print_report(self):
         # TODO provide options to make this machine readable.
         megabytes = self.total_downloaded_data / (1024**2)
         average_bandwidth = megabytes / self.total_download_time
@@ -566,13 +600,6 @@ class ServerTester(object):
 
 if __name__ == "__main__":
 
-    client_map = {
-        "htsget-api": htsget_api,
-        "htsget-cli": htsget_cli,
-        "dnanexus-cli": dnanexus_cli,
-        "sanger-cli": sanger_cli,
-        "ena-cli": ena_cli
-    }
     version_report = "%(prog)s {} (htsget {}; Python {})".format(
             __version__, htsget.__version__, ".".join(map(str, sys.version_info[:3])))
 
