@@ -10,6 +10,7 @@ import random
 import sys
 import logging
 import multiprocessing
+import traceback
 
 import tqdm
 import hjson
@@ -81,13 +82,19 @@ def run_test(case):
         server_tester.run_start_reads()
         server_tester.run_end_reads()
         server_tester.run_random_reads(case.num_random_queries)
+        logger.info("Tests completed")
         completed = True
     except tester.DownloadFailedException as dfe:
         print("Download failed: ", dfe, "see ", case.log_file_name, file=sys.stderr)
+        logger.info("Download failed: {}".format(dfe))
     except tester.TestFailedException as tfe:
         print(
             "Test failed:", tfe, ". Is the input file correct?", case.log_file_name,
             file=sys.stderr)
+        logger.info("Test failed: {}".format(tfe))
+    except Exception as e:
+        logger.info("Unexpecated error on {}: {}".format(case.log_file_name, e))
+        traceback.print_exc()
     finally:
         server_tester.cleanup()
         logger.removeHandler(log_handler)

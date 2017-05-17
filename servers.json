@@ -3,40 +3,84 @@
     {
         "file":"NA12878.bam",
         "servers":[
-            {"name":"sanger", "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878"},
-            {"name":"dnanexus-aws", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_b37/NA12878"},
-            {"name":"dnanexus-azure", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_BroadHiSeqX_b37/NA12878"},
-            {"name":"google", "url":"http://104.196.18.135/reads/CO_Ph7XUCRDW0-riiPr48fgB",
-                "filter_unmapped":true}
+            {
+                "name":"sanger", 
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878"
+            }, {
+                "name":"dnanexus-aws", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_b37/NA12878"
+            }, {
+                "name":"dnanexus-azure", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_BroadHiSeqX_b37/NA12878"
+            }, {
+                "name":"google", 
+                "url":"http://104.196.18.135/reads/CO_Ph7XUCRDW0-riiPr48fgB",
+                "filter_unmapped":true
+            }
         ]
     },
+
     {
         "file":"NA12878.cram",
         "servers":[
-            {"name":"sanger", "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878_GRCH38"},
-            {"name":"dnanexus-aws", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_hg38/NA12878"},
-            {"name":"dnanexus-azure", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_BroadHiSeqX_hg38/NA12878"},
-            {"name":"google", "url":"http://104.196.18.135/reads/CO_Ph7XUCRCX3-no2-WqtqcB",
-                "filter_unmapped":true}
+            {
+                "name":"sanger", 
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878_GRCH38"
+            }, {
+                "name":"dnanexus-aws", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_hg38/NA12878"
+            }, {
+                "name":"dnanexus-azure", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_BroadHiSeqX_hg38/NA12878"
+            },
+            // Does Google support CRAM??
+            /*
+            {
+                "name":"google", 
+                "url":"http://104.196.18.135/reads/CO_Ph7XUCRCX3-no2-WqtqcB",
+                "filter_unmapped":true
+            }
+            */
         ]
     },
+
     {
         "file":"ENCFF284YOU.bam",
         "servers":[
-            {"name":"sanger", "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF284YOU_GRCH38"},
-            {"name":"dnanexus-aws", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF284YOU"},
-            {"name":"dnanexus-azure", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_ENCODE/ENCFF284YOU"},
-            {"name":"google", "url":"http://104.196.18.135/reads/CO_Ph7XUCRCi9Lasl7yY5Z0B", "filter_unmapped":true}
+            {
+                "name":"sanger", 
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF284YOU_GRCH38"
+            }, {
+                "name":"dnanexus-aws", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF284YOU"
+            }, {
+                "name":"dnanexus-azure", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_ENCODE/ENCFF284YOU"
+            }, {
+                "name":"google", 
+                "url":"http://104.196.18.135/reads/CO_Ph7XUCRCi9Lasl7yY5Z0B", 
+                "filter_unmapped":true
+            }
         ]
     },
 
     {
         "file":"ENCFF000VWO.bam",
         "servers":[
-            {"name":"sanger", "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF000VWO"},
-            {"name":"dnanexus-aws", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF000VWO"},
-            {"name":"dnanexus-azure", "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_ENCODE/ENCFF000VWO"},
-            {"name":"google", "url":"http://104.196.18.135/reads/CO_Ph7XUCRCSn-mRrofkhXY", "filter_unmapped":true}
+            {
+                "name":"sanger", 
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF000VWO"
+            }, {
+                "name":"dnanexus-aws", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF000VWO"
+            }, {
+                "name":"dnanexus-azure", 
+                "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_ENCODE/ENCFF000VWO"
+            }, {
+                "name":"google", 
+                "url":"http://104.196.18.135/reads/CO_Ph7XUCRCSn-mRrofkhXY", 
+                "filter_unmapped":true
+            }
         ]
     }
 ]

@@ -576,6 +576,9 @@ class ServerTester(object):
             index_file = self.temp_file_name + ".bai"
             if os.path.exists(index_file):
                 os.unlink(index_file)
+            index_file = self.temp_file_name + ".crai"
+            if os.path.exists(index_file):
+                os.unlink(index_file)
 
     def report(self):
         return TestReport(
