@@ -31,7 +31,7 @@ echo Testing 2 small files ENCFF000VWO.bam and ENCFF284YOU.bam...
 echo ------------------------------------------------------------
 set -x
 
-python tester.py -vv ENCFF000VWO.bam http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF284YOU  "$@"
-python tester.py -vv ENCFF284YOU.bam http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF000VWO  "$@"
+python tester.py -vv ENCFF000VWO.bam http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF000VWO  "$@"
+python tester.py -vv ENCFF284YOU.bam http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF284YOU  "$@"
 
 set -e
