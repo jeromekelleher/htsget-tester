@@ -276,26 +276,12 @@ class ServerTester(object):
     Class to run systematic tests on a server based on a local indexed
     BAM file.
     """
-    fields = [
-        Field("pos", simple_equality),
-        Field("query_name", simple_equality),
-        Field("reference_name", simple_equality),
-        Field("cigarstring", simple_equality),
-        Field("query_alignment_sequence", simple_equality),
-        Field("query_alignment_qualities", simple_equality),
-        Field("template_length", simple_equality),
-        Field("next_reference_id", simple_equality),
-        Field("next_reference_start", simple_equality),
-        Field("flag", simple_equality),
-        Field("mapping_quality", simple_equality),
-        Field("tags", sorted_equality),
-        # TODO fill in remaining BAM fields.
-    ]
 
     def __init__(
             self, source_file_name, server_url, filter_unmapped=False, tmpdir=None,
             num_boundary_reads=10, max_references=100, max_random_query_length=10**6,
             client=None):
+
         self.source_file_name = source_file_name
         self.server_url = server_url
         self.filter_unmapped = filter_unmapped
@@ -320,6 +306,26 @@ class ServerTester(object):
         self.total_queries = 0
         self.total_downloaded_data = 0
         self.total_download_time = 1e-8  # Avoid zero division problems
+        self.fields = [
+            Field("pos", simple_equality),
+            Field("query_name", simple_equality),
+            Field("reference_name", simple_equality),
+            Field("cigarstring", simple_equality),
+            Field("query_alignment_sequence", simple_equality),
+            Field("query_alignment_qualities", simple_equality),
+            Field("template_length", simple_equality),
+            Field("flag", simple_equality),
+            Field("mapping_quality", simple_equality),
+            Field("tags", sorted_equality),
+            # TODO fill in remaining BAM fields.
+        ]
+        # If we are filtering unmapped reads from the input data, then it doesn't
+        # make sense to check for next_reference_id and next_reference_start
+        if not self.filter_unmapped:
+            self.fields.extend([
+                Field("next_reference_id", simple_equality),
+                Field("next_reference_start", simple_equality),
+            ])
 
     def get_start_positions(self, reference_name):
         """
@@ -675,5 +681,5 @@ if __name__ == "__main__":
         tester.cleanup()
     # If everything went OK, write out a report.
     if exit_status == 0:
-        tester.report()
+        tester.print_report()
     sys.exit(exit_status)
