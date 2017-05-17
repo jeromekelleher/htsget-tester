@@ -288,7 +288,7 @@ class ServerTester(object):
         self.tmpdir = tmpdir
         self.max_random_query_length = max_random_query_length
         self.alignment_file = pysam.AlignmentFile(self.source_file_name)
-        extension = os.path.splitext(self.source_file_name)[1]
+        extension = os.path.splitext(self.source_file_name)[1].lower()
         if extension == ".cram":
             self.data_format = FORMAT_CRAM
         elif extension == ".bam":
@@ -297,6 +297,7 @@ class ServerTester(object):
             raise ValueError("Unknown file format: {}. Please use .bam or .cram".format(
                 extension))
         self.temp_file_name = None
+        self.subset_reads = None
         self.num_boundary_reads = num_boundary_reads
         self.max_references = max_references
         self.client = client
@@ -317,15 +318,43 @@ class ServerTester(object):
             Field("flag", simple_equality),
             Field("mapping_quality", simple_equality),
             Field("tags", sorted_equality),
+            Field("next_reference_id", self.next_reference_equality),
+            Field("next_reference_start", self.next_reference_start_equality)
             # TODO fill in remaining BAM fields.
         ]
-        # If we are filtering unmapped reads from the input data, then it doesn't
-        # make sense to check for next_reference_id and next_reference_start
-        if not self.filter_unmapped:
-            self.fields.extend([
-                Field("next_reference_id", simple_equality),
-                Field("next_reference_start", simple_equality),
-            ])
+
+    def next_reference_equality(self, rid1, rid2):
+        """
+        Compares the two specified references.
+        """
+        # We need to convert the reference IDs back into names so that
+        # we can compare them.
+        r1 = self.alignment_file.references[rid1]
+        r2 = None if rid2 == -1 else self.subset_reads.references[rid2]
+        if self.filter_unmapped:
+            ret = True
+            # We allow the remote reference ID to be unset if we are filtering
+            # out unmapped reads.
+            if rid2 != -1:
+                ret = r1 == r2
+        else:
+            ret = r1 == r2
+        return ret
+
+    def next_reference_start_equality(self, v1, v2):
+        """
+        Compares the two specified values.
+        """
+        if self.filter_unmapped:
+            ret = True
+            # We allow the remote value to be unset if we are filtering out unmapped
+            # reads.
+            if v2 != -1:
+                ret = v1 == v2
+        else:
+            ret = v1 == v2
+        return ret
+
 
     def get_start_positions(self, reference_name):
         """
@@ -493,8 +522,8 @@ class ServerTester(object):
         before = time.clock()
         iter1 = self.alignment_file.fetch(reference_name, start, end)
         try:
-            subset_reads = pysam.AlignmentFile(self.temp_file_name)
-            iter2 = subset_reads.fetch(reference_name, start, end)
+            self.subset_reads = pysam.AlignmentFile(self.temp_file_name)
+            iter2 = self.subset_reads.fetch(reference_name, start, end)
         except ValueError as ve:
             raise DownloadFailedException("Reading downloaded data: {}".format(ve))
         if self.filter_unmapped:
@@ -505,9 +534,9 @@ class ServerTester(object):
         if self.data_format == FORMAT_BAM:
             # Count the reads outside the original region. This only works for
             # BAM files, so we don't bother for CRAM.
-            subset_reads.reset()
+            self.subset_reads.reset()
             all_reads = 0
-            for read in subset_reads:
+            for read in self.subset_reads:
                 all_reads += 1
             extra = all_reads - num_reads
             logging.info("Downloaded {} reads with {} extra".format(num_reads, extra))
