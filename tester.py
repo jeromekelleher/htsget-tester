@@ -330,7 +330,7 @@ class ServerTester(object):
         # We need to convert the reference IDs back into names so that
         # we can compare them.
         r1 = self.alignment_file.references[rid1]
-        r2 = None if rid2 == -1 else self.subset_reads.references[rid2]
+        r2 = self.subset_reads.references[rid2]
         if self.filter_unmapped:
             ret = True
             # We allow the remote reference ID to be unset if we are filtering
@@ -338,7 +338,13 @@ class ServerTester(object):
             if rid2 != -1:
                 ret = r1 == r2
         else:
-            ret = r1 == r2
+            # If both are unset, they are equal. We need to check this as the
+            # order of the references is abitrary, and references[-1] is just
+            # the last element in the list.
+            if rid1 == -1 and rid2 == -1:
+                ret = True
+            else:
+                ret = r1 == r2
         return ret
 
     def next_reference_start_equality(self, v1, v2):
