@@ -171,15 +171,38 @@ def ena_cli(url, filename, reference_name=None, start=None, end=None, data_forma
     retry_command(cmd)
 
 
+def samtools_cli( url, filename, reference_name=None, start=None, end=None, data_format=None):
+     """
+     Runs the samtools CLI program.
+     https://github.com/samtools/samtools
+     """
+
+     url += '?format=' + ('BAM' if data_format is None else str(data_format))
+     format_flag = '-b' if data_format is None or data_format == FORMAT_BAM else '-C'
+
+     if reference_name is not None:
+         url += '&referenceName='+str(reference_name)
+     if start is not None:
+         url += '&start='+ str(start)
+     if end is not None:
+         url += '&end='+ str(end)
+
+     cmd = ["samtools", "view", format_flag, url]
+
+     logging.info("samtools run : {}".format(" ".join(cmd)))
+     logging.info("tmp file : "+str(filename) )
+     retry_command(cmd, filename)
+
+
 # All clients must be registered in this map to be available for use.
 client_map = {
     "htsget-api": htsget_api,
     "htsget-cli": htsget_cli,
     "dnanexus-cli": dnanexus_cli,
     "sanger-cli": sanger_cli,
-    "ena-cli": ena_cli
+    "ena-cli": ena_cli,
+    "samtools-cli": samtools_cli
 }
-
 
 class TestFailedException(Exception):
     """
