@@ -257,14 +257,14 @@ class Field(object):
         self.equals = equals
 
 
-def simple_equality(v1, v2):
+def simple_equality(v1, v2, read):
     """
     Equality for simple fields where equality can be tested directly.
     """
     return v1 == v2
 
 
-def sorted_equality(v1, v2):
+def sorted_equality(v1, v2, read):
     """
     Equality for fields where the values must be sorted before equality tested.
     """
@@ -297,7 +297,7 @@ class ServerTester(object):
             raise ValueError("Unknown file format: {}. Please use .bam or .cram".format(
                 extension))
         self.temp_file_name = None
-        self.subset_reads = None
+        self.subset_alignment_file = None
         self.num_boundary_reads = num_boundary_reads
         self.max_references = max_references
         self.client = client
@@ -315,43 +315,43 @@ class ServerTester(object):
             Field("query_alignment_sequence", simple_equality),
             Field("query_alignment_qualities", simple_equality),
             Field("template_length", simple_equality),
-            Field("flag", simple_equality),
             Field("mapping_quality", simple_equality),
             Field("tags", sorted_equality),
             Field("next_reference_id", self.next_reference_equality),
-            Field("next_reference_start", self.next_reference_start_equality)
+            Field("next_reference_start", self.next_reference_start_equality),
+            Field("flag", self.flags_equality),
             # TODO fill in remaining BAM fields.
         ]
 
-    def next_reference_equality(self, rid1, rid2):
+    def next_reference_equality(self, local_rid, remote_rid, local_read):
         """
         Compares the two specified references.
         """
         # We need to convert the reference IDs back into names so that
         # we can compare them.
-        r1 = self.alignment_file.references[rid1]
-        r2 = self.subset_reads.references[rid2]
-        if self.filter_unmapped:
+        r1 = self.alignment_file.references[local_rid]
+        r2 = self.subset_alignment_file.references[remote_rid]
+        if self.filter_unmapped and local_read.mate_is_unmapped:
             ret = True
             # We allow the remote reference ID to be unset if we are filtering
-            # out unmapped reads.
-            if rid2 != -1:
+            # out unmapped reads and the mate is unmapped
+            if remote_rid != -1:
                 ret = r1 == r2
         else:
             # If both are unset, they are equal. We need to check this as the
             # order of the references is abitrary, and references[-1] is just
             # the last element in the list.
-            if rid1 == -1 and rid2 == -1:
+            if local_rid == -1 and remote_rid == -1:
                 ret = True
             else:
                 ret = r1 == r2
         return ret
 
-    def next_reference_start_equality(self, v1, v2):
+    def next_reference_start_equality(self, v1, v2, local_read):
         """
         Compares the two specified values.
         """
-        if self.filter_unmapped:
+        if self.filter_unmapped and local_read.mate_is_unmapped:
             ret = True
             # We allow the remote value to be unset if we are filtering out unmapped
             # reads.
@@ -361,6 +361,22 @@ class ServerTester(object):
             ret = v1 == v2
         return ret
 
+    def flags_equality(self, local_flags, remote_flags, local_read):
+        """
+        Compares the specified flags values.
+        """
+        condition = (
+            self.filter_unmapped and
+            local_read.mate_is_unmapped and
+            local_read.mate_is_reverse)
+        if condition:
+            # If we are filtering out unmapped reads and the mate is unmapped, then
+            # the mate_is_reverse flag can't be set on the remote flags. This is
+            # what the offset by 32 effectively means.
+            ret = local_flags == remote_flags + 32
+        else:
+            ret = local_flags == remote_flags
+        return ret
 
     def get_start_positions(self, reference_name):
         """
@@ -429,7 +445,7 @@ class ServerTester(object):
         for field in self.fields:
             v1 = getattr(r1, field.name)
             v2 = getattr(r2, field.name)
-            if not field.equals(v1, v2):
+            if not field.equals(v1, v2, r1):
                 self.mismatch_counts[field.name] += 1
                 if self.mismatch_counts[field.name] < self.mismatch_report_threshold:
                     logging.warning("Mismatch at {}:{}.{}:: {} != {}".format(
@@ -528,8 +544,8 @@ class ServerTester(object):
         before = time.clock()
         iter1 = self.alignment_file.fetch(reference_name, start, end)
         try:
-            self.subset_reads = pysam.AlignmentFile(self.temp_file_name)
-            iter2 = self.subset_reads.fetch(reference_name, start, end)
+            self.subset_alignment_file = pysam.AlignmentFile(self.temp_file_name)
+            iter2 = self.subset_alignment_file.fetch(reference_name, start, end)
         except ValueError as ve:
             raise DownloadFailedException("Reading downloaded data: {}".format(ve))
         if self.filter_unmapped:
@@ -540,9 +556,9 @@ class ServerTester(object):
         if self.data_format == FORMAT_BAM:
             # Count the reads outside the original region. This only works for
             # BAM files, so we don't bother for CRAM.
-            self.subset_reads.reset()
+            self.subset_alignment_file.reset()
             all_reads = 0
-            for read in self.subset_reads:
+            for read in self.subset_alignment_file:
                 all_reads += 1
             extra = all_reads - num_reads
             logging.info("Downloaded {} reads with {} extra".format(num_reads, extra))
