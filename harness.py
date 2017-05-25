@@ -93,7 +93,8 @@ def run_test(case):
             file=sys.stderr)
         logger.info("Test failed: {}".format(tfe))
     except Exception as e:
-        logger.info("Unexpecated error on {}: {}".format(case.log_file_name, e))
+        logger.info("Unexpected error on {}: {}".format(case.log_file_name, e))
+        print("Unexpected error! See", case.log_file_name)
         traceback.print_exc()
     finally:
         server_tester.cleanup()

@@ -34,12 +34,11 @@
                 "name":"dnanexus-azure", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/Azure_BroadHiSeqX_b37/NA12891"
             }, 
-            // Looks like we don't have the right ID for google here.
-            // {
-            //     "name":"google", 
-            //     "url":"http://104.196.18.135/reads/CO_Ph7XUCRDngbisk52h2KEB",
-            //     "filter_unmapped":true
-            // }
+            {
+                "name":"google", 
+                "url":"http://104.196.18.135/reads/CO_Ph7XUCRDfpdqpjO3Tim0",
+                "filter_unmapped":true
+            }
         ]
     },
 
