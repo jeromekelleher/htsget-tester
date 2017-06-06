@@ -18,7 +18,7 @@ then
 	python tester.py -vv --filter-unmapped NA12878.bam http://104.196.18.135/reads/CO_Ph7XUCRDW0-riiPr48fgB "$@"
 	#python tester.py -vv --filter-unmapped NA12878.cram http://104.196.18.135/reads/CO_Ph7XUCRCX3-no2-WqtqcB "$@"
 
-	python tester.py -vv --filter-unmapped NA12891.bam http://104.196.18.135/reads/CO_Ph7XUCRCX3-no2-WqtqcB "$@"
+	python tester.py -vv --filter-unmapped NA12891.bam http://104.196.18.135/reads/CO_Ph7XUCRDfpdqpjO3Tim0  "$@"
 	#python tester.py -vv --filter-unmapped NA12891.cram http://104.196.18.135/reads/CO_Ph7XUCRDngbisk52h2KEB "$@"
 
 	python tester.py -vv --filter-unmapped NA12892.bam http://104.196.18.135/reads/CO_Ph7XUCRCMtrWtwPmA4dgB "$@"
