@@ -566,6 +566,30 @@ class ServerTester(object):
         # Analyse the reads
         before = time.clock()
         iter1 = self.alignment_file.fetch(reference_name, start, end)
+        if self.data_format == FORMAT_CRAM:
+            # Due to a bug in htslib, we cannot use the standard code path below
+            # for CRAM files that have no records. The workaround is to open the
+            # CRAM file without an index and see if it is emtpy. If it is, we
+            # skip the rest of the tests. Once the upstream bug in htslib has
+            # been fixed and incorporated into pysam, we should remove this
+            # special case.
+            # See https://github.com/pysam-developers/pysam/issues/483
+            tmp = pysam.AlignmentFile(
+                self.temp_file_name, filepath_index="/no/such/index/exists.crai")
+            empty = True
+            for _ in tmp.head(1):
+                empty = False
+            tmp.close()
+            if empty:
+                # Make sure the original iterator is also empty...
+                count = 0
+                for _ in iter1:
+                    count += 1
+                if count != 0:
+                    raise TestFailedException(
+                        "Downloaded CRAM empty, but original contains {} reads".format(
+                            count))
+                return
         try:
             self.subset_alignment_file = pysam.AlignmentFile(self.temp_file_name)
             iter2 = self.subset_alignment_file.fetch(reference_name, start, end)
