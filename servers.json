@@ -6,7 +6,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/NA12878"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_b37/NA12878"
@@ -26,7 +26,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12891"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/NA12891"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_b37/NA12891"
@@ -47,7 +47,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12892"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/NA12892"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_b37/NA12892"
@@ -67,7 +67,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12878_GRCH38"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/NA12878_GRCH38"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_hg38/NA12878"
@@ -83,7 +83,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12891_GRCH38"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/NA12891_GRCH38"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_hg38/NA12891"
@@ -99,7 +99,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/NA12892_GRCH38"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/NA12892_GRCH38"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/BroadHiSeqX_hg38/NA12892"
@@ -115,7 +115,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF284YOU_GRCH38"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/ENCFF284YOU_GRCH38"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF284YOU"
@@ -135,7 +135,7 @@
         "servers":[
             {
                 "name":"sanger", 
-                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/v.0.1/get/sample/ENCFF000VWO"
+                "url":"http://52.213.144.237:9090/npg_ranger/ga4gh/sample/ENCFF000VWO"
             }, {
                 "name":"dnanexus-aws", 
                 "url":"http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF000VWO"
