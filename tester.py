@@ -64,7 +64,7 @@ def htsget_api(
     with open(filename, "wb") as tmp:
         htsget.get(
             url, tmp, reference_name=reference_name, reference_md5=reference_md5,
-            start=start, end=end, data_format=data_format)
+            start=start, end=end, data_format=data_format, timeout=120)
 
 
 def htsget_cli(
@@ -74,7 +74,7 @@ def htsget_cli(
     Runs the htsget CLI program. Assumes that htsget has been installed and the
     CLI program is in PATH.
     """
-    cmd = ["htsget", url, "-O", filename]
+    cmd = ["htsget", url, "-O", filename, "--timeout", "120"]
     if reference_name is not None:
         cmd.extend(["-r", str(reference_name)])
     if start is not None:
