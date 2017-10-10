@@ -14,6 +14,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import requests
+import json
 
 import htsget
 import pysam
@@ -170,6 +172,58 @@ def ena_cli(url, filename, reference_name=None, start=None, end=None, data_forma
     logging.info("ENA run: {}".format(" ".join(cmd)))
     retry_command(cmd)
 
+def ega_token(username, password):
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    # This looks horrible, but is necessary for both
+    # (a) EGA REST API which requires direct JSON (not form encoded) and
+    # (b) python requests module, which requries a string (vs dict) to post directly and
+    # (c) double {{ / }} escaping necessary when using format()
+    data = "grant_type=password&client_id=f20cd2d3-682a-4568-a53e-4262ef54c8f4&client_secret=AMenuDLjVdVo4BSwi0QD54LL6NeVDEZRzEQUJ7hJOM3g4imDZBHHX0hNfKHPeQIGkskhtCmqAJtt_jm7EKq-rWw&username={}&password={}&scope=openid".format(username, password)
+    url = "https://ega.ebi.ac.uk:8443/ega-openid-connect-server/token"
+
+    r = requests.post(url, headers = headers, data = data)
+    #logging.debug( json.dumps(r.text, indent=4) )
+    reply = r.json()
+    
+    session_token = reply['access_token']
+    
+    if session_token: logging.info("Login success for user {}".format(username))           
+    else:             logging.info("Login failure for user {}".format(username))
+
+    return session_token
+
+def ega_cli(url, filename, reference_name=None, start=None, end=None, data_format=None):
+    """
+    Runs the EGA client
+    """
+    url_segments = url.split('/')
+    dataset_id = url_segments[-1]
+    endpoint_url = "/".join(url_segments[:-1]) + "/"
+
+
+    cmd = ["java"]
+    cmd.extend(["-jar", "EgaHtsgetClient.jar"])
+
+    if "ega.ebi.ac.uk" in endpoint_url: cmd.extend(["--oauth-token", ega_token("ega-test-data@ebi.ac.uk","egarocks")])
+    
+    cmd.extend(["--endpoint-url", endpoint_url])
+    cmd.extend(["--dataset-id", dataset_id])
+    cmd.extend(["--output-file", filename])
+    cmd.extend(["--debug"])
+    
+    if data_format is not None:
+        cmd.extend(["--format", data_format])
+    if reference_name is not None:
+        cmd.extend(["--reference-name", reference_name])
+    if start is not None:
+        cmd.extend(["--alignment-start", str(start)])
+    if end is not None:
+        cmd.extend(["--alignment-stop", str(end)])
+
+    logging.info("EGA run: {}".format(" ".join(cmd)))
+    retry_command(cmd)
+    
+
 
 def samtools_cli( url, filename, reference_name=None, start=None, end=None, data_format=None):
      """
@@ -201,6 +255,7 @@ client_map = {
     "dnanexus-cli": dnanexus_cli,
     "sanger-cli": sanger_cli,
     "ena-cli": ena_cli,
+    "ega-cli": ega_cli,
     "samtools-cli": samtools_cli
 }
 
@@ -536,7 +591,14 @@ class ServerTester(object):
         r1 = next(iter1, None)
         r2 = next(iter2, None)
         if r1 is not None or r2 is not None:
-            raise TestFailedException("Total number of reads not matching")
+            extra_reads = 0;            
+            while r1 is not None: 
+                extra_reads += 1
+                r1 = next(iter1, None)
+            while r2 is not None: 
+                extra_reads += 1                
+                r2 = next(iter2, None)                
+            raise TestFailedException("Total number of reads not matching {} vs {}".format(num_reads, num_reads+extra_reads))
         assert total_checks == num_reads
         return num_reads
 
@@ -675,7 +737,7 @@ class ServerTester(object):
 
     def cleanup(self):
         self.alignment_file.close()
-        if os.path.exists(self.temp_file_name):
+        if False: #os.path.exists(self.temp_file_name):
             os.unlink(self.temp_file_name)
             index_file = self.temp_file_name + ".bai"
             if os.path.exists(index_file):
