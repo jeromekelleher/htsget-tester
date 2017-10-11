@@ -77,6 +77,9 @@ def htsget_cli(
     CLI program is in PATH.
     """
     cmd = ["htsget", url, "-O", filename, "--timeout", "120"]
+
+    if args.bearer_token: cmd.extend(["--bearer-token", args.bearer_token])
+    
     if reference_name is not None:
         cmd.extend(["-r", str(reference_name)])
     if start is not None:
@@ -172,26 +175,6 @@ def ena_cli(url, filename, reference_name=None, start=None, end=None, data_forma
     logging.info("ENA run: {}".format(" ".join(cmd)))
     retry_command(cmd)
 
-def ega_token(username, password):
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    # This looks horrible, but is necessary for both
-    # (a) EGA REST API which requires direct JSON (not form encoded) and
-    # (b) python requests module, which requries a string (vs dict) to post directly and
-    # (c) double {{ / }} escaping necessary when using format()
-    data = "grant_type=password&client_id=f20cd2d3-682a-4568-a53e-4262ef54c8f4&client_secret=AMenuDLjVdVo4BSwi0QD54LL6NeVDEZRzEQUJ7hJOM3g4imDZBHHX0hNfKHPeQIGkskhtCmqAJtt_jm7EKq-rWw&username={}&password={}&scope=openid".format(username, password)
-    url = "https://ega.ebi.ac.uk:8443/ega-openid-connect-server/token"
-
-    r = requests.post(url, headers = headers, data = data)
-    #logging.debug( json.dumps(r.text, indent=4) )
-    reply = r.json()
-    
-    session_token = reply['access_token']
-    
-    if session_token: logging.info("Login success for user {}".format(username))           
-    else:             logging.info("Login failure for user {}".format(username))
-
-    return session_token
-
 def ega_cli(url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
     Runs the EGA client
@@ -204,7 +187,7 @@ def ega_cli(url, filename, reference_name=None, start=None, end=None, data_forma
     cmd = ["java"]
     cmd.extend(["-jar", "EgaHtsgetClient.jar"])
 
-    if "ega.ebi.ac.uk" in endpoint_url: cmd.extend(["--oauth-token", ega_token("ega-test-data@ebi.ac.uk","egarocks")])
+    if args.bearer_token: cmd.extend(["--oauth-token", args.bearer_token])
     
     cmd.extend(["--endpoint-url", endpoint_url])
     cmd.extend(["--dataset-id", dataset_id])
@@ -807,6 +790,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--client", choices=list(client_map.keys()), default="htsget-api",
         help="The client to use for running the transfer")
+
+    parser.add_argument(
+        "--bearer-token", type=str, help="Bearer token")
+        
 
     args = parser.parse_args()
     log_level = logging.WARNING
