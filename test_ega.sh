@@ -24,19 +24,19 @@ then
     set -x
 
     get_token
-	python tester.py -vv NA12878.bam https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/EGAF00001753746 --bearer-token $token "$@"
+	python tester.py -vv NA12878.bam http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001753746 --bearer-token $token "$@"
 	get_token
-	python tester.py -vv NA12878.cram https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/EGAF00001648209 --bearer-token $token "$@"
+	python tester.py -vv NA12878.cram http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001753734 --bearer-token $token "$@"
 
 	get_token
-	python tester.py -vv NA12891.bam https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/EGAF00001648195 --bearer-token $token "$@"
+	#python tester.py -vv NA12891.bam http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001753748  --bearer-token $token "$@"
 	get_token
-	python tester.py -vv NA12891.cram https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/EGAF00001648207 --bearer-token $token "$@"
+	python tester.py -vv NA12891.cram http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001753736 --bearer-token $token "$@"
 
 	get_token
-	python tester.py -vv NA12892.bam https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/EGAF00001648193 --bearer-token $token "$@"
+	#python tester.py -vv NA12892.bam http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001753750 --bearer-token $token "$@"
 	get_token
-	python tester.py -vv NA12892.cram https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/EGAF00001648205 --bearer-token $token "$@"
+	python tester.py -vv NA12892.cram http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001753738 --bearer-token $token "$@"
 fi
 
 set +x
@@ -46,8 +46,8 @@ echo ------------------------------------------------------------
 set -x
 
 get_token
-python tester.py -vv ENCFF000VWO.bam https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/ENCFF000VWO.bam --bearer-token $token "$@"
+python tester.py -vv ENCFF000VWO.bam http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001770106 --bearer-token $token "$@"
 get_token
-python tester.py -vv ENCFF284YOU.bam https://ega.ebi.ac.uk:8051/elixir/data/tickets/files/ENCFF284YOU.bam --bearer-token $token "$@"
+python tester.py -vv ENCFF284YOU.bam http://pg-ega-pro-09.ebi.ac.uk:8060/tickets/files/EGAF00001770107 --bearer-token $token "$@"
 
 set -e
