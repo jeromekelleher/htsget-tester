@@ -78,7 +78,8 @@ def htsget_cli(
     """
     cmd = ["htsget", url, "-O", filename, "--timeout", "120"]
 
-    if args.bearer_token: cmd.extend(["--bearer-token", args.bearer_token])
+    if args.bearer_token:   cmd.extend(["--bearer-token", args.bearer_token])
+    if args.ca_bundle:      os.environ["CURL_CA_BUNDLE"] = args.ca_bundle
     
     if reference_name is not None:
         cmd.extend(["-r", str(reference_name)])
@@ -88,9 +89,9 @@ def htsget_cli(
         cmd.extend(["-e", str(end)])
     if data_format is not None:
         cmd.extend(["-f", str(data_format)])
-    logging.info("htsget-cli: run {}".format(" ".join(cmd)))
+    logging.info("htsget-cli run: {}".format(" ".join(cmd)))
     # We don't need to retry here because htsget automatically retries on errors.
-    subprocess.check_call(cmd)
+    subprocess.check_call( cmd )
 
 
 def dnanexus_cli(
@@ -107,9 +108,7 @@ def dnanexus_cli(
     accession = url_segments[-1]
     server = "/".join(url_segments[:-2])
     cmd = ["./htsnexus.py", "-s", server]
-    cmd.extend([namespace, accession])
-    if data_format is not None:
-        cmd.append(data_format)
+   
     if reference_name is not None:
         ref = str(reference_name)
         # htsnexus doesn't support specifying start and end on their own,
@@ -120,7 +119,15 @@ def dnanexus_cli(
         if start is not None or end is not None:
             ref += ":{}-{}".format(s, e)
         cmd.extend(["-r", ref])
-    logging.info("htsnexus: run {}".format(" ".join(cmd)))
+
+    if args.bearer_token: cmd.extend(["--token", args.bearer_token])
+
+    cmd.extend([namespace, accession])    
+    
+    if data_format is not None:
+        cmd.append(data_format)
+        
+    logging.info("htsnexus run: {}".format(" ".join(cmd)))
     retry_command(cmd, filename)
 
 
@@ -133,21 +140,28 @@ def sanger_cli(
     $ npm install npg_ranger
     $ python tester.py --client=sanger-cli <other args>
     """
-    args = {}
+    params = {}
     if reference_name is not None:
-        args["referenceName"] = reference_name
+        params["referenceName"] = reference_name
     if start is not None:
-        args["start"] = str(start)
+        params["start"] = str(start)
     if end is not None:
-        args["end"] = str(end)
+        params["end"] = str(end)
     if data_format is not None:
-        args["format"] = data_format
-    if len(args) > 0:
-        url += "?{}".format(urlencode(args))
+        params["format"] = data_format
+    if len(params) > 0:
+        url += "?{}".format(urlencode(params))
 
-    cmd = ["node_modules/.bin/npg_ranger_client", url, filename]
+    cmd = ["node_modules/.bin/npg_ranger_client", url, filename] 
 
-    logging.info("sanger client: run {}".format(" ".join(cmd)))
+    if args.ca_bundle: cmd.extend(["--with_ca", args.ca_bundle])  
+
+    if args.bearer_token: 
+        with open('./sanger_token.json', 'w') as outfile:
+            json.dump({'token': ""+str(args.bearer_token)}, outfile)        
+        cmd.extend(["--token_config",'./sanger_token.json'])
+
+    logging.info("sanger client run: {}".format(" ".join(cmd)))
     retry_command(cmd)
 
 
@@ -177,7 +191,7 @@ def ena_cli(url, filename, reference_name=None, start=None, end=None, data_forma
 
 def ega_cli(url, filename, reference_name=None, start=None, end=None, data_format=None):
     """
-    Runs the EGA client
+    Runs the EGA client by Alexander Senf ( https://github.com/EbiEga/ega-htsget-client )
     """
     url_segments = url.split('/')
     dataset_id = url_segments[-1]
@@ -222,11 +236,22 @@ def samtools_cli( url, filename, reference_name=None, start=None, end=None, data
      if start is not None:
          url += '&start='+ str(start)
      if end is not None:
-         url += '&end='+ str(end)
-
+         url += '&end='+ str(end)        
+     
      cmd = ["samtools", "view", format_flag, url]
 
-     logging.info("samtools run : {}".format(" ".join(cmd)))
+     #--- uncomment these 2 lines to debug samtools output
+     #format_flag = "-c"
+     #cmd = ["htsfile", "-vvvvvvvvv", format_flag, url]
+
+     if args.bearer_token:         
+         with open('samtools_token', 'w') as outfile:
+             outfile.write( args.bearer_token )          
+         os.environ["HTS_AUTH_LOCATION"] = "samtools_token"           
+
+     if args.ca_bundle: os.environ["CURL_CA_BUNDLE"] = args.ca_bundle;
+
+     logging.info("samtools run: {}".format(" ".join(cmd)))
      logging.info("tmp file : "+str(filename) )
      retry_command(cmd, filename)
 
@@ -581,7 +606,7 @@ class ServerTester(object):
             while r2 is not None: 
                 extra_reads += 1                
                 r2 = next(iter2, None)                
-            raise TestFailedException("Total number of reads not matching {} vs {}".format(num_reads, num_reads+extra_reads))
+            raise TestFailedException("Total number of reads not matching {} vs {}".format(num_reads, num_reads+extra_reads+1))
         assert total_checks == num_reads
         return num_reads
 
@@ -752,6 +777,7 @@ class ServerTester(object):
 
 if __name__ == "__main__":
 
+    print("tester.py...Python version=" + sys.version)
     version_report = "%(prog)s {} (htsget {}; Python {})".format(
             __version__, htsget.__version__, ".".join(map(str, sys.version_info[:3])))
 
@@ -793,6 +819,9 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--bearer-token", type=str, help="Bearer token")
+        
+    parser.add_argument(
+                "--ca_bundle", type=str, help="CA bundle")
         
 
     args = parser.parse_args()
