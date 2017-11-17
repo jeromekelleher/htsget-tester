@@ -821,7 +821,7 @@ if __name__ == "__main__":
         "--bearer-token", type=str, help="Bearer token")
         
     parser.add_argument(
-                "--ca_bundle", type=str, help="CA bundle")
+                "--ca-bundle", type=str, help="CA bundle")
         
 
     args = parser.parse_args()

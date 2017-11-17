@@ -25,19 +25,19 @@ then
 
 
     get_token
-	python tester.py -vv --filter-unmapped NA12878.bam  https://35.196.212.220/reads/ga4gh-demo/NA12878.bam --cert htsget-demo.pem  --bearer-token $token "$@"
+	python tester.py -vv --filter-unmapped NA12878.bam  https://35.196.212.220/reads/ga4gh-demo/NA12878.bam --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 	get_token
-	python tester.py -vv --filter-unmapped NA12878.cram https://35.196.212.220/reads/ga4gh-demo/NA12878.cram --cert htsget-demo.pem  --bearer-token $token "$@"
+	python tester.py -vv --filter-unmapped NA12878.cram https://35.196.212.220/reads/ga4gh-demo/NA12878.cram --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 
     get_token
-	python tester.py -vv --filter-unmapped NA12891.bam https://35.196.212.220/reads/ga4gh-demo/NA12891.bam --cert htsget-demo.pem   --bearer-token $token "$@"
+	python tester.py -vv --filter-unmapped NA12891.bam https://35.196.212.220/reads/ga4gh-demo/NA12891.bam --ca-bundle htsget-demo.pem   --bearer-token $token "$@"
 	get_token
-	python tester.py -vv --filter-unmapped NA12891.cram https://35.196.212.220/reads/ga4gh-demo/NA12891.cram --cert htsget-demo.pem  --bearer-token $token "$@"
+	python tester.py -vv --filter-unmapped NA12891.cram https://35.196.212.220/reads/ga4gh-demo/NA12891.cram --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 
 	get_token
-	python tester.py -vv --filter-unmapped NA12892.bam https://35.196.212.220/reads/ga4gh-demo/NA12892.bam --cert htsget-demo.pem  --bearer-token $token "$@"
+	python tester.py -vv --filter-unmapped NA12892.bam https://35.196.212.220/reads/ga4gh-demo/NA12892.bam --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 	get_token
-	python tester.py -vv --filter-unmapped NA12892.cram https://35.196.212.220/reads/ga4gh-demo/NA12892.cram --cert htsget-demo.pem  --bearer-token $token "$@"
+	python tester.py -vv --filter-unmapped NA12892.cram https://35.196.212.220/reads/ga4gh-demo/NA12892.cram --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 fi
 
 
@@ -48,8 +48,8 @@ echo ------------------------------------------------------------
 set -x
 
 get_token
-python tester.py -vv --filter-unmapped ENCFF000VWO.bam https://35.196.212.220/reads/ga4gh-demo/ENCFF000VWO.bam --cert htsget-demo.pem  --bearer-token $token "$@"
+python tester.py -vv --filter-unmapped ENCFF000VWO.bam https://35.196.212.220/reads/ga4gh-demo/ENCFF000VWO.bam --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 get_token
-python tester.py -vv --filter-unmapped ENCFF284YOU.bam https://35.196.212.220/reads/ga4gh-demo/ENCFF284YOU.bam --cert htsget-demo.pem  --bearer-token $token "$@"
+python tester.py -vv --filter-unmapped ENCFF284YOU.bam https://35.196.212.220/reads/ga4gh-demo/ENCFF284YOU.bam --ca-bundle htsget-demo.pem  --bearer-token $token "$@"
 
 set -e
