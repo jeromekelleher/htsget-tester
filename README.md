@@ -1,13 +1,11 @@
-# GA4GH Streaming API tester.
+# Htsget server tester.
 
-A tester for the draft API spec at 
-
-https://docs.google.com/document/d/1OSPfxdJ3uPoCfUVzMaekCOPF5sNEwqkJEUj-SjlECy0
+A test application for the GA4GH [htsget](http://samtools.github.io/hts-specs/htsget.html) protocol.
 
 ## Usage
 
 ```bash
-$ git clone https://github.com/jeromekelleher/ga4gh-streaming-tester.git
+$ git clone https://github.com/jeromekelleher/htsget-tester.git
 $ pip install -r requirements.txt
 $ python tester.py -vv ENCFF000VWO.bam http://htsnexus.rnd.dnanex.us/v1/reads/ENCODE/ENCFF000VWO
 ```
