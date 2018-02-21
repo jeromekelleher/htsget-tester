@@ -578,7 +578,7 @@ class ServerTester(object):
         for r1, r2 in zip(iter1, iter2):
             num_reads += 1
             if r1.pos != r2.pos:
-                raise TestFailedException("Non-matching read positions")
+                raise TestFailedException("Non-matching read positions(local != remote) : ({}){}!={}({})".format( getattr(r1,"query_name"), r1.pos, r2.pos, getattr(r2,"query_name")) )
             if r1.pos != last_pos:
                 total_checks += check_reads_for_position(d1, d2)
                 d1.clear()
