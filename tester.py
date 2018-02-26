@@ -121,6 +121,7 @@ def dnanexus_cli(
         cmd.extend(["-r", ref])
 
     if args.bearer_token: cmd.extend(["--token", args.bearer_token])
+    if args.ca_bundle:    cmd.extend(["--insecure"])
 
     cmd.extend([namespace, accession])    
     
