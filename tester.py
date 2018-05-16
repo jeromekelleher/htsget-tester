@@ -746,7 +746,7 @@ class ServerTester(object):
 
     def cleanup(self):
         self.alignment_file.close()
-        if False: #os.path.exists(self.temp_file_name):
+        if os.path.exists(self.temp_file_name):
             os.unlink(self.temp_file_name)
             index_file = self.temp_file_name + ".bai"
             if os.path.exists(index_file):
@@ -778,7 +778,6 @@ class ServerTester(object):
 
 if __name__ == "__main__":
 
-    print("tester.py...Python version=" + sys.version)
     version_report = "%(prog)s {} (htsget {}; Python {})".format(
             __version__, htsget.__version__, ".".join(map(str, sys.version_info[:3])))
 
